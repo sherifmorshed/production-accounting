@@ -88,7 +88,9 @@ body.light-mode .app-header::after{background:radial-gradient(circle, rgba(7,94,
 .date-bar{display:flex;align-items:center;gap:10px;margin-top:12px;background:rgba(0,200,240,0.07);border:1px solid rgba(0,200,240,0.18);border-radius:8px;padding:8px 12px;}
 body.light-mode .date-bar{background:rgba(7,94,84,.06);border-color:rgba(7,94,84,.2);}
 .date-bar label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-family:'JetBrains Mono',monospace;flex-shrink:0;}
-.date-bar input[type=date]{background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;padding:5px 8px;flex:1;min-width:0;}
+.date-field-wrap{position:relative;flex:1;min-width:0;}
+.date-display{background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;padding:5px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;}
+.date-field-wrap input[type=date]{position:absolute;inset:0;width:100%;height:100%;opacity:0;border:none;padding:0;margin:0;cursor:pointer;}
 .sync-pill{font-size:9px;font-family:'JetBrains Mono',monospace;padding:3px 8px;border-radius:12px;background:var(--surface);border:1px solid var(--border);color:var(--muted);white-space:nowrap;}
 .sync-pill.synced{color:var(--green);border-color:rgba(16,185,129,.3);}
 .sync-pill.syncing{color:var(--yellow);border-color:rgba(251,191,36,.3);}
@@ -177,6 +179,64 @@ body.light-mode .result-card.net{background:linear-gradient(135deg, rgba(16,185,
 }
 .print-btn:active{background:rgba(34,211,238,.12);}
 
+.action-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.action-row .print-btn{margin-bottom:0;}
+.ocr-btn{background:var(--surface);border:1.5px solid var(--accent2);color:var(--accent2);}
+.ocr-btn:active{background:rgba(245,158,11,.12);}
+
+/* ── OCR IMPORT MODAL ── */
+.ocr-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9500;display:none;align-items:flex-start;justify-content:center;padding:0;overflow-y:auto;}
+.ocr-overlay.show{display:flex;}
+.ocr-modal{background:var(--card);width:100%;max-width:640px;min-height:100%;border-left:1px solid var(--border);border-right:1px solid var(--border);}
+.ocr-modal-hdr{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--border);}
+.ocr-modal-hdr h2{font-size:14px;letter-spacing:1px;color:var(--accent);text-transform:uppercase;}
+.ocr-close{background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:16px;width:32px;height:32px;cursor:pointer;line-height:1;}
+.ocr-body{padding:16px;}
+.ocr-step-lbl{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-family:'JetBrains Mono',monospace;margin:18px 0 8px;}
+.ocr-step-lbl:first-child{margin-top:0;}
+.ocr-hint{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px;}
+.ocr-capture-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.ocr-cap-btn{padding:16px 10px;background:var(--surface);border:1.5px dashed var(--border);border-radius:10px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;text-align:center;}
+.ocr-cap-btn:active{border-color:var(--accent);background:rgba(34,211,238,.06);}
+.ocr-cap-btn .ico{font-size:26px;display:block;margin-bottom:6px;}
+.ocr-preview-wrap{margin-top:14px;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#000;}
+.ocr-preview-wrap img{width:100%;display:block;max-height:340px;object-fit:contain;background:#111;}
+.ocr-extract-btn{width:100%;margin-top:12px;padding:13px;background:var(--accent);color:#04121a;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;font-family:'Inter',sans-serif;}
+body.light-mode .ocr-extract-btn{color:#fff;}
+.ocr-extract-btn:disabled{opacity:.5;}
+.ocr-progress-wrap{margin-top:12px;display:none;}
+.ocr-progress-wrap.show{display:block;}
+.ocr-progress-lbl{font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:6px;text-align:center;}
+.ocr-progress-bar{height:6px;border-radius:4px;background:var(--surface);border:1px solid var(--border);overflow:hidden;}
+.ocr-progress-fill{height:100%;width:0%;background:var(--accent);transition:width .25s;}
+
+.ocr-map-toggle{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px;}
+.ocr-map-toggle .lbl{color:var(--muted);font-family:'JetBrains Mono',monospace;}
+.ocr-map-toggle .val{color:var(--accent);font-weight:700;}
+.ocr-swap-btn{background:none;border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:11px;padding:5px 10px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-weight:700;}
+.ocr-swap-btn:active{background:rgba(34,211,238,.12);}
+
+table.ocr-review{width:100%;border-collapse:collapse;font-size:12.5px;}
+table.ocr-review th{background:var(--surface);color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-size:9px;padding:7px 6px;border-bottom:1px solid var(--border);text-align:center;}
+table.ocr-review td{padding:4px 6px;border-bottom:1px solid var(--border);text-align:center;}
+table.ocr-review tr.blk-b td{background:rgba(245,158,11,.05);}
+body.light-mode table.ocr-review tr.blk-b td{background:rgba(146,64,14,.05);}
+table.ocr-review td.hr-lbl{font-family:'JetBrains Mono',monospace;color:var(--muted);font-size:11px;white-space:nowrap;text-align:left;padding-left:10px;}
+table.ocr-review input{
+  width:100%;max-width:78px;background:var(--surface);border:1px solid var(--border);
+  border-radius:6px;color:var(--text);font-family:'JetBrains Mono',monospace;
+  font-size:13px;padding:5px 4px;text-align:center;outline:none;
+}
+table.ocr-review input.ocr-low-conf{border-color:var(--yellow);}
+table.ocr-review input:focus{border-color:var(--accent);}
+.ocr-legend{font-size:10.5px;color:var(--muted);margin:8px 0 4px;font-family:'JetBrains Mono',monospace;}
+.ocr-legend .dot{display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--yellow);margin-right:4px;vertical-align:-1px;}
+
+.ocr-footer{position:sticky;bottom:0;display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px;background:var(--surface);border-top:1px solid var(--border);}
+.ocr-apply-btn{padding:13px;background:var(--green);border:none;border-radius:10px;color:#04150e;font-weight:700;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;}
+.ocr-cancel-btn{padding:13px;background:none;border:1.5px solid var(--border);border-radius:10px;color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;}
+.ocr-loading-note{font-size:12px;color:var(--muted);text-align:center;padding:10px;}
+
 /* ── PRINT REPORT (hidden on screen, shown only when printing) ── */
 #printArea{display:none;}
 @media print{
@@ -245,14 +305,20 @@ body.light-mode .result-card.net{background:linear-gradient(135deg, rgba(16,185,
     <div class="sub">Fieran Terminal — Petreco &amp; Marine Daily Production</div>
     <div class="date-bar">
       <label for="prodDate">Date</label>
-      <input type="date" id="prodDate" lang="en" onchange="onDateChange()">
+      <div class="date-field-wrap">
+        <div class="date-display" id="dateDisplay">—</div>
+        <input type="date" id="prodDate" lang="en" onchange="onDateChange()">
+      </div>
       <span class="sync-pill" id="syncPill">—</span>
     </div>
   </div>
 
   <div class="wrap">
 
-    <button class="print-btn" onclick="printReport()">🖨️ Print / Save Report (PDF)</button>
+    <div class="action-row">
+      <button class="print-btn" onclick="printReport()">🖨️ Print / Save</button>
+      <button class="print-btn ocr-btn" onclick="openOcrModal()">📷 Import from Photo</button>
+    </div>
 
     <!-- Headline results -->
     <div class="result-cards">
@@ -298,17 +364,17 @@ body.light-mode .result-card.net{background:linear-gradient(135deg, rgba(16,185,
       <div class="daily-grid">
         <div class="daily-field">
           <label>Zeitco</label>
-          <input type="number" inputmode="decimal" lang="en" id="inZeitco" placeholder="0" oninput="sanitizeNumInput(this); onInputChange()">
+          <input type="text" inputmode="decimal" lang="en" id="inZeitco" placeholder="0" oninput="sanitizeNumInput(this); onInputChange()">
           <div class="unit">m³/d</div>
         </div>
         <div class="daily-field">
           <label>Shedwan</label>
-          <input type="number" inputmode="decimal" lang="en" id="inShedwan" placeholder="0" oninput="sanitizeNumInput(this); onInputChange()">
+          <input type="text" inputmode="decimal" lang="en" id="inShedwan" placeholder="0" oninput="sanitizeNumInput(this); onInputChange()">
           <div class="unit">m³/d</div>
         </div>
         <div class="daily-field">
           <label>Condensate</label>
-          <input type="number" inputmode="decimal" lang="en" id="inCondensate" placeholder="0" oninput="sanitizeNumInput(this); onInputChange()">
+          <input type="text" inputmode="decimal" lang="en" id="inCondensate" placeholder="0" oninput="sanitizeNumInput(this); onInputChange()">
           <div class="unit">m³/d</div>
         </div>
       </div>
@@ -333,6 +399,63 @@ body.light-mode .result-card.net{background:linear-gradient(135deg, rgba(16,185,
 <div class="toast" id="toast"></div>
 
 <div id="printArea"></div>
+
+<!-- ══════════════ OCR IMPORT MODAL ══════════════ -->
+<div class="ocr-overlay" id="ocrOverlay">
+  <div class="ocr-modal">
+    <div class="ocr-modal-hdr">
+      <h2>📷 Import from Photo</h2>
+      <button class="ocr-close" onclick="closeOcrModal()">✕</button>
+    </div>
+    <div class="ocr-body">
+
+      <div class="ocr-step-lbl">Step 1 — Photo of the table</div>
+      <div class="ocr-hint">Take a clear, well-lit photo straight-on over the table, or upload one from your gallery. Handwritten numbers are read automatically — you'll review and can correct every value before it's applied.</div>
+      <div class="ocr-capture-row">
+        <button class="ocr-cap-btn" onclick="document.getElementById('ocrCameraInput').click()">
+          <span class="ico">📷</span>Take Photo
+        </button>
+        <button class="ocr-cap-btn" onclick="document.getElementById('ocrGalleryInput').click()">
+          <span class="ico">🖼️</span>Choose from Gallery
+        </button>
+      </div>
+      <input type="file" id="ocrCameraInput" accept="image/*" capture="environment" style="display:none" onchange="handleOcrFileSelected(this.files[0])">
+      <input type="file" id="ocrGalleryInput" accept="image/*" style="display:none" onchange="handleOcrFileSelected(this.files[0])">
+
+      <div class="ocr-preview-wrap" id="ocrPreviewWrap" style="display:none;">
+        <img id="ocrPreviewImg" alt="Selected table photo">
+      </div>
+
+      <button class="ocr-extract-btn" id="ocrExtractBtn" style="display:none;" onclick="runOcrExtraction()">🔍 Extract Data</button>
+
+      <div class="ocr-progress-wrap" id="ocrProgressWrap">
+        <div class="ocr-progress-lbl" id="ocrProgressLbl">Loading recognition engine…</div>
+        <div class="ocr-progress-bar"><div class="ocr-progress-fill" id="ocrProgressFill"></div></div>
+      </div>
+
+      <div id="ocrReviewSection" style="display:none;">
+        <div class="ocr-step-lbl">Step 2 — Column mapping</div>
+        <div class="ocr-map-toggle">
+          <span class="lbl">Col 5 (M3 · MARIN) → <span class="val" id="ocrMapCol5">MARINE</span> &nbsp;|&nbsp; Col 9 (M3 · LAND) → <span class="val" id="ocrMapCol9">PETRECO</span></span>
+          <button class="ocr-swap-btn" onclick="swapOcrMapping()">⇄ Swap</button>
+        </div>
+
+        <div class="ocr-step-lbl">Step 3 — Review &amp; correct</div>
+        <div class="ocr-hint">Extracted values are matched to hours in top-to-bottom order. This sheet may start at a different hour than the app's 7 AM cycle — check alignment below and edit any row. Blank = not applied for that hour.</div>
+        <div class="ocr-legend"><span class="dot"></span>Amber border = low-confidence read, please double-check</div>
+        <table class="ocr-review">
+          <thead><tr><th style="text-align:left;padding-left:10px;">Hour</th><th id="ocrThPetreco">Petreco</th><th id="ocrThMarine">Marine</th></tr></thead>
+          <tbody id="ocrReviewBody"></tbody>
+        </table>
+      </div>
+
+    </div>
+    <div class="ocr-footer" id="ocrFooter" style="display:none;">
+      <button class="ocr-cancel-btn" onclick="closeOcrModal()">Cancel</button>
+      <button class="ocr-apply-btn" onclick="applyOcrToForm()">✅ Apply to Form</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══════════════ FIREBASE ══════════════ -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -396,11 +519,19 @@ function toWesternDigits(str){
 // is always English digits — even on phones set to Arabic.
 function sanitizeNumInput(el){
   const before = el.value;
-  const after = toWesternDigits(before);
-  if(after !== before){
-    const pos = el.selectionStart;
+  let after = toWesternDigits(before);
+  // Keep only digits, one leading minus, one decimal point.
+  after = after.replace(/[^0-9.\-]/g, '');
+  after = after.replace(/(?!^)-/g, '');
+  const firstDot = after.indexOf('.');
+  if (firstDot !== -1) after = after.slice(0, firstDot + 1) + after.slice(firstDot + 1).replace(/\./g, '');
+  if (after !== before) {
     el.value = after;
-    try{ el.setSelectionRange(pos, pos); }catch(_){}
+    // NOTE: selectionStart/setSelectionRange throw on <input type="number"> per spec —
+    // only attempt cursor restore on selection-capable types (text/search/tel/url/password).
+    if (el.type === 'text' || el.type === 'search' || el.type === 'tel' || el.type === 'url' || el.type === 'password') {
+      try{ el.setSelectionRange(after.length, after.length); }catch(_){}
+    }
   }
 }
 function numOrNull(v){ if(v===''||v===null||v===undefined) return null; const n=parseFloat(toWesternDigits(v)); return isNaN(n)?null:n; }
@@ -416,8 +547,8 @@ function buildHourlyTable(){
     if (i % 3 === 0 && i !== 0) cls += (cls ? ' ' : '') + 'blk-start';
     return '<tr' + (cls ? ' class="' + cls + '"' : '') + '>' +
       '<td class="hr-lbl">' + h.l + '</td>' +
-      '<td><input type="number" inputmode="decimal" step="any" lang="en" id="pet_' + h.k + '" oninput="sanitizeNumInput(this); onInputChange()" placeholder="0"></td>' +
-      '<td><input type="number" inputmode="decimal" step="any" lang="en" id="mar_' + h.k + '" oninput="sanitizeNumInput(this); onInputChange()" placeholder="0"></td>' +
+      '<td><input type="text" inputmode="decimal" lang="en" id="pet_' + h.k + '" oninput="sanitizeNumInput(this); onInputChange()" placeholder="0"></td>' +
+      '<td><input type="text" inputmode="decimal" lang="en" id="mar_' + h.k + '" oninput="sanitizeNumInput(this); onInputChange()" placeholder="0"></td>' +
     '</tr>';
   }).join('');
 }
@@ -506,17 +637,38 @@ function setField(id, val, decimals){
 
 // ══════════════════════════════════════════
 //  PRINT / SAVE REPORT
+//  Printed from a fresh browser tab rather than the current window —
+//  when this PWA is installed/running standalone (added to home screen),
+//  especially on iOS, window.print() on the app's own window frequently
+//  does nothing (no browser chrome to host the print sheet). Opening a
+//  normal tab hands off to the real browser, where printing works reliably.
 // ══════════════════════════════════════════
-function printReport(){
+const PRINT_STYLE_CSS =
+  'body{margin:0;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;padding:22px;}' +
+  '.pr-header{display:flex;align-items:center;gap:14px;border-bottom:2px solid #075E54;padding-bottom:10px;margin-bottom:10px;}' +
+  '.pr-logo{width:52px;height:52px;border-radius:10px;object-fit:cover;}' +
+  '.pr-header h1{font-size:18px;color:#075E54;letter-spacing:1px;margin:0;}' +
+  '.pr-sub{font-size:11px;color:#555;margin-top:2px;}' +
+  '.pr-meta{font-size:11px;color:#333;margin-bottom:18px;font-family:"Courier New",monospace;}' +
+  'table.pr-table{width:100%;border-collapse:collapse;margin-bottom:18px;font-size:12px;}' +
+  'table.pr-table caption{caption-side:top;text-align:left;font-weight:700;font-size:12.5px;letter-spacing:.5px;color:#075E54;padding:6px 0;text-transform:uppercase;border-bottom:1px solid #ccc;margin-bottom:2px;}' +
+  'table.pr-table th{text-align:left;padding:6px 8px;border-bottom:1px solid #ddd;color:#333;font-weight:600;width:55%;}' +
+  'table.pr-table td{text-align:right;padding:6px 8px;border-bottom:1px solid #ddd;font-family:"Courier New",monospace;}' +
+  'table.pr-table tr.pr-total th,table.pr-table tr.pr-total td{font-weight:800;border-top:2px solid #075E54;border-bottom:2px solid #075E54;background:#f2f7f6;}' +
+  '.pr-footer{font-size:10px;color:#777;text-align:center;margin-top:20px;border-top:1px solid #ddd;padding-top:8px;}' +
+  '@media print{ @page{margin:14mm;} }';
+
+function buildReportBodyHtml(){
   const state = readState();
   const r = compute(state);
   const dateStr = state.date || today();
   const printedAt = new Date().toLocaleString('en-US');
   const byUser = currentUser ? currentUser.email : '';
+  const iconUrl = new URL('icon-192.png', document.baseURI).href;
 
-  const html =
+  const bodyHtml =
     '<div class="pr-header">' +
-      '<img src="icon.png" class="pr-logo" alt="">' +
+      '<img src="' + escHtml(iconUrl) + '" class="pr-logo" alt="">' +
       '<div>' +
         '<h1>PETROBEL — ACCOUNTING PROD.</h1>' +
         '<div class="pr-sub">Fieran Terminal — Daily Production Report</div>' +
@@ -556,8 +708,305 @@ function printReport(){
 
     '<div class="pr-footer">PETROBEL — Accounting Production · Conversion factor 1 m³ = 6.292316 bbl</div>';
 
-  document.getElementById('printArea').innerHTML = html;
-  setTimeout(function(){ window.print(); }, 60);
+  return { dateStr: dateStr, bodyHtml: bodyHtml };
+}
+
+function printReport(){
+  const rep = buildReportBodyHtml();
+
+  const fullDoc =
+    '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+    '<title>Accounting Prod Report ' + escHtml(rep.dateStr) + '</title>' +
+    '<style>' + PRINT_STYLE_CSS + '</style></head><body>' +
+    rep.bodyHtml +
+    '<scr' + 'ipt>' +
+      'window.onload=function(){ setTimeout(function(){ window.print(); }, 250); };' +
+      'window.onafterprint=function(){ window.close(); };' +
+    '</scr' + 'ipt>' +
+    '</body></html>';
+
+  let printWin = null;
+  try { printWin = window.open('', '_blank'); } catch (_e) { printWin = null; }
+
+  if (printWin) {
+    try {
+      printWin.document.open();
+      printWin.document.write(fullDoc);
+      printWin.document.close();
+      return;
+    } catch (_e) { /* fall through to same-page fallback below */ }
+  }
+
+  // Fallback — pop-up blocked, or an in-app browser that disallows window.open.
+  // Prints from a hidden area on this page instead (original method).
+  document.getElementById('printArea').innerHTML = rep.bodyHtml;
+  showToast('ℹ️ Pop-up blocked — printing from this page instead', true);
+  setTimeout(function(){ window.print(); }, 80);
+}
+
+// ══════════════════════════════════════════
+//  OCR IMPORT FROM PHOTO
+//  100% client-side (Tesseract.js, lazy-loaded from CDN — no backend,
+//  no API key, matches this app's static-file architecture).
+//  Column 5 (M3 · MARIN level) and Column 9 (M3 · first LAND level)
+//  are read per the attached reference sheet's layout, then matched
+//  top-to-bottom to the app's 24 hourly slots for manual review.
+// ══════════════════════════════════════════
+let _ocrCanvas = null;
+let _ocrRawRows = [];                                  // parsed {col5:{text,conf}, col9:{text,conf}} per row
+let _ocrMapping = { col5: 'marine', col9: 'petreco' };  // which physical column feeds which form field
+let _tesseractLoading = null;
+
+function loadTesseractLib(){
+  if (window.Tesseract) return Promise.resolve();
+  if (_tesseractLoading) return _tesseractLoading;
+  _tesseractLoading = new Promise(function(resolve, reject){
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload = function(){ resolve(); };
+    s.onerror = function(){ reject(new Error('Failed to load OCR engine — check internet connection')); };
+    document.head.appendChild(s);
+  });
+  return _tesseractLoading;
+}
+
+function openOcrModal(){ document.getElementById('ocrOverlay').classList.add('show'); }
+function closeOcrModal(){ document.getElementById('ocrOverlay').classList.remove('show'); }
+
+function resetOcrReviewUI(){
+  document.getElementById('ocrReviewSection').style.display = 'none';
+  document.getElementById('ocrFooter').style.display = 'none';
+  _ocrRawRows = [];
+}
+
+function handleOcrFileSelected(file){
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      const maxW = 1600;
+      const scale = Math.min(1, maxW / img.width);
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+
+      // Grayscale + contrast stretch — improves OCR accuracy on handwritten
+      // pencil/pen entries against a printed grid.
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const d = imgData.data;
+      let min = 255, max = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        const g = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+        d[i] = d[i+1] = d[i+2] = g;
+        if (g < min) min = g;
+        if (g > max) max = g;
+      }
+      const range = Math.max(1, max - min);
+      for (let i = 0; i < d.length; i += 4) {
+        const v = Math.min(255, Math.max(0, ((d[i] - min) / range) * 255));
+        d[i] = d[i+1] = d[i+2] = v;
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      _ocrCanvas = canvas;
+      document.getElementById('ocrPreviewImg').src = canvas.toDataURL('image/jpeg', 0.85);
+      document.getElementById('ocrPreviewWrap').style.display = '';
+      document.getElementById('ocrExtractBtn').style.display = '';
+      resetOcrReviewUI();
+    };
+    img.onerror = function(){ showToast('⚠️ Could not read that image', true); };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// Cluster OCR word boxes into table rows (by vertical position), then take
+// the 5th and 9th numeric token left-to-right within each row.
+function parseOcrWordsIntoRows(words){
+  const toks = [];
+  for (const w of (words || [])) {
+    if (!w || !w.text) continue;
+    const cleaned = w.text.trim().replace(/[^0-9.,]/g, '').replace(/,/g, '');
+    if (!cleaned || !/^[0-9]+(\.[0-9]+)?$/.test(cleaned)) continue;
+    const bbox = w.bbox || {};
+    const y0 = bbox.y0 != null ? bbox.y0 : 0;
+    const y1 = bbox.y1 != null ? bbox.y1 : y0;
+    const x0 = bbox.x0 != null ? bbox.x0 : 0;
+    toks.push({
+      text: cleaned,
+      conf: (typeof w.confidence === 'number' ? w.confidence : 50),
+      x0: x0, yc: (y0 + y1) / 2, h: Math.max(1, y1 - y0)
+    });
+  }
+  if (!toks.length) return [];
+
+  toks.sort(function(a, b){ return a.yc - b.yc; });
+  const hs = toks.map(function(t){ return t.h; }).sort(function(a, b){ return a - b; });
+  const medianH = hs[Math.floor(hs.length / 2)] || 20;
+  const rowGap = medianH * 1.1;
+
+  // Skip the header band (column titles) near the top of the photo.
+  const imgH = _ocrCanvas ? _ocrCanvas.height : 0;
+  const headerCutoff = imgH * 0.12;
+
+  const rows = [];
+  let current = null;
+  for (const t of toks) {
+    if (t.yc < headerCutoff) continue;
+    if (!current || (t.yc - current.yc) > rowGap) {
+      current = { yc: t.yc, items: [] };
+      rows.push(current);
+    }
+    current.items.push(t);
+    current.yc = (current.yc + t.yc) / 2;
+  }
+
+  return rows.map(function(r){
+    const items = r.items.slice().sort(function(a, b){ return a.x0 - b.x0; });
+    const col5 = items[4];
+    const col9 = items[8];
+    return {
+      col5: col5 ? { text: col5.text, conf: col5.conf } : null,
+      col9: col9 ? { text: col9.text, conf: col9.conf } : null
+    };
+  }).slice(0, HOURS.length);
+}
+
+async function runOcrExtraction(){
+  if (!_ocrCanvas) { showToast('⚠️ Select a photo first', true); return; }
+  const extractBtn = document.getElementById('ocrExtractBtn');
+  const progWrap   = document.getElementById('ocrProgressWrap');
+  const progFill   = document.getElementById('ocrProgressFill');
+  const progLbl    = document.getElementById('ocrProgressLbl');
+
+  extractBtn.disabled = true;
+  progWrap.classList.add('show');
+  progLbl.textContent = 'Loading recognition engine…';
+  progFill.style.width = '5%';
+
+  try {
+    await loadTesseractLib();
+    progLbl.textContent = 'Reading table…';
+    const worker = await Tesseract.createWorker('eng', 1, {
+      logger: function(m){
+        if (m.status === 'recognizing text' && typeof m.progress === 'number') {
+          const pct = Math.round(10 + m.progress * 85);
+          progFill.style.width = pct + '%';
+          progLbl.textContent = 'Reading table… ' + pct + '%';
+        }
+      }
+    });
+    await worker.setParameters({ tessedit_char_whitelist: '0123456789., ' });
+    const { data } = await worker.recognize(_ocrCanvas);
+    await worker.terminate();
+
+    progFill.style.width = '100%';
+    progLbl.textContent = 'Parsing columns…';
+
+    _ocrRawRows = parseOcrWordsIntoRows(data.words || []);
+    _ocrMapping = { col5: 'marine', col9: 'petreco' };
+    renderOcrReviewTable();
+
+    document.getElementById('ocrReviewSection').style.display = '';
+    document.getElementById('ocrFooter').style.display = '';
+    setTimeout(function(){ progWrap.classList.remove('show'); }, 400);
+
+    const found = _ocrRawRows.filter(function(r){ return r.col5 || r.col9; }).length;
+    if (found === 0) {
+      showToast('⚠️ No numbers recognized — enter values manually below', true);
+    } else {
+      showToast('✅ Extracted ' + found + ' row(s) — please review');
+    }
+  } catch (err) {
+    console.error('[OCR] extraction failed', err);
+    progWrap.classList.remove('show');
+    showToast('⚠️ Extraction failed — you can still enter values manually below', true);
+    _ocrRawRows = [];
+    renderOcrReviewTable();
+    document.getElementById('ocrReviewSection').style.display = '';
+    document.getElementById('ocrFooter').style.display = '';
+  }
+  extractBtn.disabled = false;
+}
+
+function renderOcrReviewTable(){
+  const petCol = (_ocrMapping.col9 === 'petreco') ? 'col9' : 'col5';
+  const marCol = (petCol === 'col9') ? 'col5' : 'col9';
+  document.getElementById('ocrMapCol5').textContent = (_ocrMapping.col5 || '').toUpperCase();
+  document.getElementById('ocrMapCol9').textContent = (_ocrMapping.col9 || '').toUpperCase();
+
+  const body = document.getElementById('ocrReviewBody');
+  body.innerHTML = HOURS.map(function(h, i){
+    const row = _ocrRawRows[i] || {};
+    const pet = row[petCol]; const mar = row[marCol];
+    const petVal = pet ? pet.text : ''; const petConf = pet ? pet.conf : 100;
+    const marVal = mar ? mar.text : ''; const marConf = mar ? mar.conf : 100;
+    const block = Math.floor(i / 3);
+    const rowCls = (block % 2 === 1) ? ' class="blk-b"' : '';
+    const petLow = (petVal && petConf < 60) ? ' ocr-low-conf' : '';
+    const marLow = (marVal && marConf < 60) ? ' ocr-low-conf' : '';
+    return '<tr' + rowCls + '>' +
+      '<td class="hr-lbl">' + h.l + '</td>' +
+      '<td><input type="text" inputmode="decimal" lang="en" data-i="' + i + '" data-col="' + petCol + '" class="' + petLow + '" value="' + escHtml(petVal) + '" oninput="onOcrCellEdit(this)"></td>' +
+      '<td><input type="text" inputmode="decimal" lang="en" data-i="' + i + '" data-col="' + marCol + '" class="' + marLow + '" value="' + escHtml(marVal) + '" oninput="onOcrCellEdit(this)"></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function onOcrCellEdit(el){
+  sanitizeNumInput(el);
+  const i = parseInt(el.getAttribute('data-i'), 10);
+  const col = el.getAttribute('data-col');
+  if (!_ocrRawRows[i]) _ocrRawRows[i] = {};
+  _ocrRawRows[i][col] = { text: el.value, conf: 100 }; // user-confirmed → full confidence
+  el.classList.remove('ocr-low-conf');
+}
+
+function swapOcrMapping(){
+  const tmp = _ocrMapping.col5;
+  _ocrMapping.col5 = _ocrMapping.col9;
+  _ocrMapping.col9 = tmp;
+  renderOcrReviewTable();
+}
+
+function applyOcrToForm(){
+  const petCol = (_ocrMapping.col9 === 'petreco') ? 'col9' : 'col5';
+  const marCol = (petCol === 'col9') ? 'col5' : 'col9';
+
+  let filledCount = 0, overwriteCount = 0;
+  HOURS.forEach(function(h, i){
+    const row = _ocrRawRows[i] || {};
+    const petVal = row[petCol] ? toWesternDigits(row[petCol].text) : '';
+    const marVal = row[marCol] ? toWesternDigits(row[marCol].text) : '';
+    const petOk = petVal !== '' && !isNaN(parseFloat(petVal));
+    const marOk = marVal !== '' && !isNaN(parseFloat(marVal));
+    if (petOk) filledCount++;
+    if (marOk) filledCount++;
+    const petEl = document.getElementById('pet_' + h.k);
+    const marEl = document.getElementById('mar_' + h.k);
+    if (petEl.value !== '' && petOk) overwriteCount++;
+    if (marEl.value !== '' && marOk) overwriteCount++;
+  });
+
+  if (filledCount === 0) { showToast('⚠️ Nothing to apply — all rows are blank', true); return; }
+  if (overwriteCount > 0 && !confirm('This will overwrite ' + overwriteCount + ' hourly value(s) already entered. Continue?')) return;
+
+  HOURS.forEach(function(h, i){
+    const row = _ocrRawRows[i] || {};
+    const petVal = row[petCol] ? toWesternDigits(row[petCol].text) : '';
+    const marVal = row[marCol] ? toWesternDigits(row[marCol].text) : '';
+    if (petVal !== '' && !isNaN(parseFloat(petVal))) document.getElementById('pet_' + h.k).value = petVal;
+    if (marVal !== '' && !isNaN(parseFloat(marVal))) document.getElementById('mar_' + h.k).value = marVal;
+  });
+
+  onInputChange(); // same render + Firestore save path as manual entry
+  closeOcrModal();
+  showToast('✅ Applied ' + filledCount + ' value(s) to the form');
 }
 
 // ══════════════════════════════════════════
@@ -635,8 +1084,21 @@ function stopListener(){
   if(_unsub){ _unsub(); _unsub = null; }
 }
 
+// Renders the date in fixed English digits/month name, regardless of the
+// phone's system language — the native <input type=date> is invisible and
+// only used as the tap-target that opens the OS picker.
+function updateDateDisplay(){
+  const val = document.getElementById('prodDate').value;
+  const disp = document.getElementById('dateDisplay');
+  const parts = (val || '').split('-').map(Number);
+  if (parts.length !== 3 || parts.some(isNaN)) { disp.textContent = val || '—'; return; }
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  disp.textContent = d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
 function onDateChange(){
   currentDate = document.getElementById('prodDate').value || today();
+  updateDateDisplay();
   startListener(currentDate);
 }
 
@@ -698,6 +1160,7 @@ function showApp(user){
 
   currentDate = today();
   document.getElementById('prodDate').value = currentDate;
+  updateDateDisplay();
   startListener(currentDate);
 
   setTimeout(hideLoadingScreen, 900);
