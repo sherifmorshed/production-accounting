@@ -4,7 +4,7 @@
 //  requests are NEVER cached to prevent stale data.
 // ══════════════════════════════════════════
 
-const CACHE_NAME = 'accounting-prod-v10';
+const CACHE_NAME = 'accounting-prod-v12';
 
 // Only cache static files that don't change between sessions
 const STATIC_ASSETS = [
@@ -71,7 +71,7 @@ self.addEventListener('fetch', function(event) {
 
   // For static assets: network-first, fall back to cache for offline support
   event.respondWith(
-    fetch(event.request).then(function(response) {
+    fetch(event.request, { cache: 'no-store' }).then(function(response) {
       // Cache successful responses for offline use
       if (response && response.status === 200) {
         var responseClone = response.clone();

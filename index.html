@@ -342,7 +342,7 @@ table.ocr-review input:focus{border-color:var(--accent);}
         <span>🕐 Hourly Readings — Petreco &amp; Marine (m³)</span>
       </div>
       <table class="hr-tbl">
-        <thead><tr><th style="text-align:left;padding-left:12px;">Hour</th><th>Petreco</th><th>Marine</th></tr></thead>
+        <thead><tr><th style="text-align:left;padding-left:12px;">Hour</th><th>Marine</th><th>Petreco</th></tr></thead>
         <tbody id="hourlyBody"></tbody>
       </table>
     </div>
@@ -360,22 +360,22 @@ table.ocr-review input:focus{border-color:var(--accent);}
 
     <!-- Daily inputs: Zeitco / Shedwan / Condensate -->
     <div class="section">
-      <div class="sec-title">➕ Additional Fields — Daily (m³)</div>
+      <div class="sec-title">➕ Additional Fields — Daily (bbl)</div>
       <div class="daily-grid">
         <div class="daily-field">
           <label>Zeitco</label>
           <input type="text" inputmode="decimal" lang="en" id="inZeitco" placeholder="0" oninput="sanitizeNumInput(this); onInputChange()">
-          <div class="unit">m³/d</div>
+          <div class="unit">bbl/d</div>
         </div>
         <div class="daily-field">
           <label>Shedwan</label>
           <input type="text" inputmode="decimal" lang="en" id="inShedwan" placeholder="0" oninput="sanitizeNumInput(this); onInputChange()">
-          <div class="unit">m³/d</div>
+          <div class="unit">bbl/d</div>
         </div>
         <div class="daily-field">
           <label>Condensate</label>
           <input type="text" inputmode="decimal" lang="en" id="inCondensate" placeholder="0" oninput="sanitizeNumInput(this); onInputChange()">
-          <div class="unit">m³/d</div>
+          <div class="unit">bbl/d</div>
         </div>
       </div>
     </div>
@@ -383,8 +383,8 @@ table.ocr-review input:focus{border-color:var(--accent);}
     <!-- Full breakdown -->
     <div class="section">
       <div class="sec-title">🧮 Full Breakdown</div>
-      <div class="field"><span class="f-label">Zeitco field</span><span class="f-val" id="fZeitco">0<span class="u">m³/d</span></span></div>
-      <div class="field"><span class="f-label">Shedwan + Condensate</span><span class="f-val" id="fShedCond">0<span class="u">m³/d</span></span></div>
+      <div class="field"><span class="f-label">Zeitco field</span><span class="f-val" id="fZeitco">0<span class="u">bbl/d</span></span></div>
+      <div class="field"><span class="f-label">Shedwan + Condensate</span><span class="f-val" id="fShedCond">0<span class="u">bbl/d</span></span></div>
       <div class="field"><span class="f-label">Land (bbl, net)</span><span class="f-val" id="fLandBbl">0<span class="u">bbl/d</span></span></div>
       <div class="field"><span class="f-label">Marine (bbl, net)</span><span class="f-val" id="fMarineBbl">0<span class="u">bbl/d</span></span></div>
       <div class="field"><span class="f-label">Total Land (bbl)</span><span class="f-val" id="fLandRawBbl">0<span class="u">bbl/d</span></span></div>
@@ -444,7 +444,7 @@ table.ocr-review input:focus{border-color:var(--accent);}
         <div class="ocr-hint">Extracted values are matched to hours in top-to-bottom order. This sheet may start at a different hour than the app's 7 AM cycle — check alignment below and edit any row. Blank = not applied for that hour.</div>
         <div class="ocr-legend"><span class="dot"></span>Amber border = low-confidence read, please double-check</div>
         <table class="ocr-review">
-          <thead><tr><th style="text-align:left;padding-left:10px;">Hour</th><th id="ocrThPetreco">Petreco</th><th id="ocrThMarine">Marine</th></tr></thead>
+          <thead><tr><th style="text-align:left;padding-left:10px;">Hour</th><th id="ocrThMarine">Marine</th><th id="ocrThPetreco">Petreco</th></tr></thead>
           <tbody id="ocrReviewBody"></tbody>
         </table>
       </div>
@@ -547,8 +547,8 @@ function buildHourlyTable(){
     if (i % 3 === 0 && i !== 0) cls += (cls ? ' ' : '') + 'blk-start';
     return '<tr' + (cls ? ' class="' + cls + '"' : '') + '>' +
       '<td class="hr-lbl">' + h.l + '</td>' +
-      '<td><input type="text" inputmode="decimal" lang="en" id="pet_' + h.k + '" oninput="sanitizeNumInput(this); onInputChange()" placeholder="0"></td>' +
       '<td><input type="text" inputmode="decimal" lang="en" id="mar_' + h.k + '" oninput="sanitizeNumInput(this); onInputChange()" placeholder="0"></td>' +
+      '<td><input type="text" inputmode="decimal" lang="en" id="pet_' + h.k + '" oninput="sanitizeNumInput(this); onInputChange()" placeholder="0"></td>' +
     '</tr>';
   }).join('');
 }
@@ -583,8 +583,14 @@ function compute(state){
   const receivedFeiran_m3  = landRaw_m3 + marineRaw_m3;
   const receivedFeiran_bbl = landRaw_bbl + marineRaw_bbl;
 
-  const zeitco_m3   = state.zeitco || 0;
-  const shedCond_m3 = (state.shedwan||0) + (state.condensate||0);
+  // Zeitco / Shedwan / Condensate are entered in BBL — convert to m³ before
+  // subtracting, since all Land/Marine math above is carried in m³.
+  const zeitco_bbl    = state.zeitco || 0;
+  const shedwan_bbl    = state.shedwan || 0;
+  const condensate_bbl = state.condensate || 0;
+  const shedCond_bbl   = shedwan_bbl + condensate_bbl;
+  const zeitco_m3   = zeitco_bbl / CONV;
+  const shedCond_m3 = shedCond_bbl / CONV;
 
   const netLand_m3   = landRaw_m3 - zeitco_m3;
   const netMarine_m3 = marineRaw_m3 - shedCond_m3;
@@ -599,6 +605,7 @@ function compute(state){
     landRaw_m3: landRaw_m3, marineRaw_m3: marineRaw_m3,
     landRaw_bbl: landRaw_bbl, marineRaw_bbl: marineRaw_bbl,
     receivedFeiran_m3: receivedFeiran_m3, receivedFeiran_bbl: receivedFeiran_bbl,
+    zeitco_bbl: zeitco_bbl, shedCond_bbl: shedCond_bbl,
     zeitco_m3: zeitco_m3, shedCond_m3: shedCond_m3,
     netLand_m3: netLand_m3, netMarine_m3: netMarine_m3,
     netLand_bbl: netLand_bbl, netMarine_bbl: netMarine_bbl,
@@ -621,8 +628,8 @@ function render(){
   setField('fMarineRaw', r.marineRaw_m3, 1);
   setField('fLandNet', r.netLand_m3, 1);
   setField('fMarineNet', r.netMarine_m3, 1);
-  setField('fZeitco', r.zeitco_m3, 1);
-  setField('fShedCond', r.shedCond_m3, 1);
+  setField('fZeitco', r.zeitco_bbl, 1);
+  setField('fShedCond', r.shedCond_bbl, 1);
   setField('fLandBbl', r.netLand_bbl, 0);
   setField('fMarineBbl', r.netMarine_bbl, 0);
   setField('fLandRawBbl', r.landRaw_bbl, 0);
@@ -698,8 +705,8 @@ function buildReportBodyHtml(){
     '</table>' +
 
     '<table class="pr-table"><caption>🧮 Full Breakdown</caption>' +
-      '<tr><th>Zeitco field</th><td colspan="2">' + fmtNum(r.zeitco_m3,1) + ' m³/d</td></tr>' +
-      '<tr><th>Shedwan + Condensate</th><td colspan="2">' + fmtNum(r.shedCond_m3,1) + ' m³/d</td></tr>' +
+      '<tr><th>Zeitco field</th><td colspan="2">' + fmtNum(r.zeitco_bbl,1) + ' bbl/d</td></tr>' +
+      '<tr><th>Shedwan + Condensate</th><td colspan="2">' + fmtNum(r.shedCond_bbl,1) + ' bbl/d</td></tr>' +
       '<tr><th>Land (bbl, net)</th><td colspan="2">' + fmtNum(r.netLand_bbl,0) + ' bbl/d</td></tr>' +
       '<tr><th>Marine (bbl, net)</th><td colspan="2">' + fmtNum(r.netMarine_bbl,0) + ' bbl/d</td></tr>' +
       '<tr><th>Total Land (bbl)</th><td colspan="2">' + fmtNum(r.landRaw_bbl,0) + ' bbl/d</td></tr>' +
@@ -711,7 +718,11 @@ function buildReportBodyHtml(){
   return { dateStr: dateStr, bodyHtml: bodyHtml };
 }
 
-function printReport(){
+// Fallback path (no internet to load the PDF engine, or the PDF engine
+// failed some other way): opens a real browser tab and prints from there.
+// Doesn't need internet — pure browser rendering — so it's the right
+// last-resort for a genuinely offline moment.
+function printReportViaWindow(){
   const rep = buildReportBodyHtml();
 
   const fullDoc =
@@ -738,11 +749,184 @@ function printReport(){
     } catch (_e) { /* fall through to same-page fallback below */ }
   }
 
-  // Fallback — pop-up blocked, or an in-app browser that disallows window.open.
-  // Prints from a hidden area on this page instead (original method).
+  // Pop-up blocked, or an in-app browser that disallows window.open.
+  // Prints from a hidden area on this page instead.
   document.getElementById('printArea').innerHTML = rep.bodyHtml;
   showToast('ℹ️ Pop-up blocked — printing from this page instead', true);
   setTimeout(function(){ window.print(); }, 80);
+}
+
+// ══════════════════════════════════════════
+//  PRINT / SAVE — primary path: real PDF + native Share sheet
+//  window.print()/window.open() are unreliable inside an INSTALLED
+//  (home-screen) PWA on both iOS and Android — there's no browser chrome
+//  to host a print dialog, and Android's WebAPK/TWA shell frequently
+//  blocks them outright. The Web Share API (with file support), however,
+//  is explicitly designed to work inside standalone/installed PWAs on
+//  both platforms — so we build a real PDF client-side (jsPDF, lazy-
+//  loaded from CDN, no backend/API key) and hand it to the OS share
+//  sheet, which itself offers Print / Save / AirDrop / etc.
+// ══════════════════════════════════════════
+let _jspdfLoading = null;
+function loadJsPdfLib(){
+  if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve();
+  if (_jspdfLoading) return _jspdfLoading;
+  _jspdfLoading = new Promise(function(resolve, reject){
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+    s.onload = function(){ resolve(); };
+    s.onerror = function(){ _jspdfLoading = null; reject(new Error('Failed to load PDF engine')); };
+    document.head.appendChild(s);
+  });
+  return _jspdfLoading;
+}
+
+// Pure, synchronous PDF layout (no network) — safe to call right before
+// navigator.share() without losing the "real user gesture" window some
+// browsers require for that call to be permitted.
+function generateReportPdf(){
+  const { jsPDF } = window.jspdf;
+  const state = readState();
+  const r = compute(state);
+  const dateStr = state.date || today();
+  const printedAt = new Date().toLocaleString('en-US');
+  const byUser = currentUser ? currentUser.email : '';
+
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const marginX = 14, rightX = 196;
+  let y = 18;
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(7, 94, 84);
+  doc.text('PETROBEL - ACCOUNTING PROD.', marginX, y);
+  y += 6;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(85, 85, 85);
+  doc.text('Fieran Terminal - Daily Production Report', marginX, y);
+  y += 5;
+  doc.setDrawColor(7, 94, 84); doc.setLineWidth(0.6); doc.line(marginX, y, rightX, y);
+  y += 6;
+
+  doc.setFontSize(9); doc.setTextColor(51, 51, 51); doc.setFont('helvetica', 'normal');
+  doc.text('Date: ' + dateStr + '   |   Printed: ' + printedAt + '   |   By: ' + byUser, marginX, y);
+  y += 10;
+
+  function ensureSpace(need){ if (y + need > 280) { doc.addPage(); y = 20; } }
+  function sectionTitle(title){
+    ensureSpace(14);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(7, 94, 84);
+    doc.text(title, marginX, y);
+    y += 2;
+    doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.2);
+    doc.line(marginX, y, rightX, y);
+    y += 6;
+  }
+  function dataRow(label, v1, v2, bold){
+    ensureSpace(7);
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    doc.setFontSize(10); doc.setTextColor(0, 0, 0);
+    doc.text(label, marginX, y);
+    if (v2 !== undefined) {
+      doc.text(v1, 140, y, { align: 'right' });
+      doc.text(v2, rightX, y, { align: 'right' });
+    } else {
+      doc.text(v1, rightX, y, { align: 'right' });
+    }
+    if (bold) { doc.setDrawColor(7, 94, 84); doc.setLineWidth(0.3); doc.line(marginX, y + 1.5, rightX, y + 1.5); }
+    y += 7;
+  }
+
+  sectionTitle('RECEIVED AT FEIRAN (GROSS - with Zeitco / Shedwan / Condensate)');
+  dataRow('Land raw', fmtNum(r.landRaw_m3,1)+' m3/d', fmtNum(r.landRaw_bbl,0)+' bbl/d');
+  dataRow('Marine raw', fmtNum(r.marineRaw_m3,1)+' m3/d', fmtNum(r.marineRaw_bbl,0)+' bbl/d');
+  dataRow('Total Received at Feiran', fmtNum(r.receivedFeiran_m3,1)+' m3/d', fmtNum(r.receivedFeiran_bbl,0)+' bbl/d', true);
+  y += 4;
+
+  sectionTitle('TOTAL PRODUCTION PER DAY (NET - without Zeitco / Shedwan / Condensate)');
+  dataRow('Net Land', fmtNum(r.netLand_m3,1)+' m3/d', fmtNum(r.netLand_bbl,0)+' bbl/d');
+  dataRow('Net Marine', fmtNum(r.netMarine_m3,1)+' m3/d', fmtNum(r.netMarine_bbl,0)+' bbl/d');
+  dataRow('Total Production per Day', fmtNum(r.totalNet_m3,1)+' m3/d', fmtNum(r.totalNet_bbl,0)+' bbl/d', true);
+  y += 4;
+
+  sectionTitle('LAND (PETRECO) & MARINE - DAILY');
+  dataRow('Avg Petreco (hourly)', fmtNum(r.avgPetreco,2)+' m3/hr');
+  dataRow('Avg Marine (hourly)', fmtNum(r.avgMarine,2)+' m3/hr');
+  dataRow('Total Land', fmtNum(r.landRaw_m3,1)+' m3/d');
+  dataRow('Total Marine', fmtNum(r.marineRaw_m3,1)+' m3/d');
+  dataRow('Net Land (- Zeitco)', fmtNum(r.netLand_m3,1)+' m3/d');
+  dataRow('Net Marine (- Shedwan & Condensate)', fmtNum(r.netMarine_m3,1)+' m3/d');
+  y += 4;
+
+  sectionTitle('FULL BREAKDOWN');
+  dataRow('Zeitco field', fmtNum(r.zeitco_bbl,1)+' bbl/d');
+  dataRow('Shedwan + Condensate', fmtNum(r.shedCond_bbl,1)+' bbl/d');
+  dataRow('Land (bbl, net)', fmtNum(r.netLand_bbl,0)+' bbl/d');
+  dataRow('Marine (bbl, net)', fmtNum(r.netMarine_bbl,0)+' bbl/d');
+  dataRow('Total Land (bbl)', fmtNum(r.landRaw_bbl,0)+' bbl/d');
+  dataRow('Total Marine (bbl)', fmtNum(r.marineRaw_bbl,0)+' bbl/d');
+
+  doc.setFontSize(8); doc.setTextColor(120, 120, 120);
+  doc.text('PETROBEL - Accounting Production | Conversion factor 1 m3 = 6.292316 bbl', marginX, 290);
+
+  return { doc: doc, dateStr: dateStr };
+}
+
+function downloadPdfBlob(blob, fileName){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fileName;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+  showToast('✅ Report downloaded — open it to print or share');
+}
+
+function doGenerateAndShareReport(){
+  try {
+    const built = generateReportPdf(); // synchronous — keeps this close to the click
+    const fileName = 'AccountingProd_' + built.dateStr + '.pdf';
+    const blob = built.doc.output('blob');
+
+    if (navigator.share && navigator.canShare) {
+      let file, canShareFiles = false;
+      try {
+        file = new File([blob], fileName, { type: 'application/pdf' });
+        canShareFiles = navigator.canShare({ files: [file] });
+      } catch (_e) { canShareFiles = false; }
+
+      if (canShareFiles) {
+        navigator.share({ files: [file], title: 'Accounting Prod. Report', text: 'PETROBEL Fieran Terminal — ' + built.dateStr })
+          .catch(function(shareErr){
+            if (shareErr && shareErr.name === 'AbortError') return; // user cancelled the sheet — fine, do nothing
+            downloadPdfBlob(blob, fileName); // share failed some other way — fall back to a direct download
+          });
+        return;
+      }
+    }
+    downloadPdfBlob(blob, fileName); // desktop / no file-share support — direct download
+  } catch (err) {
+    console.error('[Print] PDF generation failed', err);
+    showToast('⚠️ Could not generate PDF — using browser print instead', true);
+    printReportViaWindow();
+  }
+}
+
+function printReport(){
+  if (window.jspdf && window.jspdf.jsPDF) {
+    // Engine already loaded (usually preloaded silently at login) — go straight
+    // through, single tap, everything synchronous from here to navigator.share().
+    doGenerateAndShareReport();
+    return;
+  }
+  // First use this session: load the engine, then ask for one more tap so the
+  // eventual navigator.share() call still happens inside a fresh, direct user
+  // gesture (required by iOS/Android — an automatic call after a network wait
+  // can be silently refused).
+  showToast('⏳ Preparing report engine — tap Print again in a moment');
+  loadJsPdfLib().then(function(){
+    showToast('✅ Ready — tap Print / Save again');
+  }).catch(function(err){
+    console.error('[Print] jsPDF failed to load', err);
+    showToast('⚠️ No internet for the PDF engine — using browser print instead', true);
+    printReportViaWindow();
+  });
 }
 
 // ══════════════════════════════════════════
@@ -952,8 +1136,8 @@ function renderOcrReviewTable(){
     const marLow = (marVal && marConf < 60) ? ' ocr-low-conf' : '';
     return '<tr' + rowCls + '>' +
       '<td class="hr-lbl">' + h.l + '</td>' +
-      '<td><input type="text" inputmode="decimal" lang="en" data-i="' + i + '" data-col="' + petCol + '" class="' + petLow + '" value="' + escHtml(petVal) + '" oninput="onOcrCellEdit(this)"></td>' +
       '<td><input type="text" inputmode="decimal" lang="en" data-i="' + i + '" data-col="' + marCol + '" class="' + marLow + '" value="' + escHtml(marVal) + '" oninput="onOcrCellEdit(this)"></td>' +
+      '<td><input type="text" inputmode="decimal" lang="en" data-i="' + i + '" data-col="' + petCol + '" class="' + petLow + '" value="' + escHtml(petVal) + '" oninput="onOcrCellEdit(this)"></td>' +
     '</tr>';
   }).join('');
 }
@@ -1162,6 +1346,8 @@ function showApp(user){
   document.getElementById('prodDate').value = currentDate;
   updateDateDisplay();
   startListener(currentDate);
+
+  loadJsPdfLib().catch(function(){ /* will retry / fall back when Print is tapped */ });
 
   setTimeout(hideLoadingScreen, 900);
 }
