@@ -179,10 +179,22 @@ body.light-mode .result-card.net{background:linear-gradient(135deg, rgba(16,185,
 }
 .print-btn:active{background:rgba(34,211,238,.12);}
 
-.action-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
-.action-row .print-btn{margin-bottom:0;}
+.action-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;}
+.action-row .print-btn{padding:12px 4px;font-size:12px;margin-bottom:0;}
 .ocr-btn{background:var(--surface);border:1.5px solid var(--accent2);color:var(--accent2);}
 .ocr-btn:active{background:rgba(245,158,11,.12);}
+.drain-btn{background:var(--surface);border:1.5px solid var(--green);color:var(--green);}
+.drain-btn:active{background:rgba(16,185,129,.12);}
+
+.stream-toggle{border:none;border-radius:6px;padding:4px 8px;font-size:9.5px;font-weight:700;letter-spacing:.4px;font-family:'JetBrains Mono',monospace;cursor:pointer;color:#04121a;white-space:nowrap;}
+.stream-toggle.land{background:var(--accent);}
+.stream-toggle.marine{background:var(--accent2);color:#2b1400;}
+body.light-mode .stream-toggle.land{color:#fff;}
+.drain-out{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted);text-align:center;}
+.drain-tot-row{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;font-size:12px;font-family:'JetBrains Mono',monospace;border-top:1px solid var(--border);}
+.drain-tot-row b{color:var(--text);white-space:nowrap;}
+.drain-tot-row.grand{border-top:2px solid var(--accent);margin-top:2px;font-size:13px;}
+.drain-tot-row.grand b{color:var(--accent);}
 
 /* ── OCR IMPORT MODAL ── */
 .ocr-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9500;display:none;align-items:flex-start;justify-content:center;padding:0;overflow-y:auto;}
@@ -316,8 +328,9 @@ table.ocr-review input:focus{border-color:var(--accent);}
   <div class="wrap">
 
     <div class="action-row">
-      <button class="print-btn" onclick="printReport()">🖨️ Print / Save</button>
-      <button class="print-btn ocr-btn" onclick="openOcrModal()">📷 Import from Photo</button>
+      <button class="print-btn" onclick="printReport()">🖨️ Print</button>
+      <button class="print-btn ocr-btn" onclick="openOcrModal()">📷 Photo</button>
+      <button class="print-btn drain-btn" onclick="openDrainModal()">🛢️ Drain</button>
     </div>
 
     <!-- Headline results -->
@@ -389,6 +402,9 @@ table.ocr-review input:focus{border-color:var(--accent);}
       <div class="field"><span class="f-label">Marine (bbl, net)</span><span class="f-val" id="fMarineBbl">0<span class="u">bbl/d</span></span></div>
       <div class="field"><span class="f-label">Total Land (bbl)</span><span class="f-val" id="fLandRawBbl">0<span class="u">bbl/d</span></span></div>
       <div class="field"><span class="f-label">Total Marine (bbl)</span><span class="f-val" id="fMarineRawBbl">0<span class="u">bbl/d</span></span></div>
+      <div class="field"><span class="f-label">Drain — Land</span><span class="f-val" id="fDrainLand">0<span class="u">bbl/d</span></span></div>
+      <div class="field"><span class="f-label">Drain — Marine</span><span class="f-val" id="fDrainMarine">0<span class="u">bbl/d</span></span></div>
+      <div class="field"><span class="f-label">Drain — Total</span><span class="f-val" id="fDrainTotal">0<span class="u">bbl/d</span></span></div>
     </div>
 
   </div>
@@ -457,6 +473,27 @@ table.ocr-review input:focus{border-color:var(--accent);}
   </div>
 </div>
 
+<!-- ══════════════ TANK DRAIN MODAL ══════════════ -->
+<div class="ocr-overlay" id="drainOverlay">
+  <div class="ocr-modal">
+    <div class="ocr-modal-hdr">
+      <h2>🛢️ Tank Drain Calculation</h2>
+      <button class="ocr-close" onclick="closeDrainModal()">✕</button>
+    </div>
+    <div class="ocr-body">
+      <div class="ocr-hint">Enter the CM drained for any tank(s) used today. Each tank converts at its own cm→m³ factor, matching the reference sheet. The total is subtracted from <b>both</b> Received at Feiran and Total Production per Day, split by stream. Tap LAND/MARINE to reassign a tank if the default is wrong for it.</div>
+      <table class="ocr-review">
+        <thead><tr><th style="text-align:left;padding-left:10px;">Tank</th><th>CM</th><th>M³</th><th>BBL</th><th>Stream</th></tr></thead>
+        <tbody id="drainBody"></tbody>
+      </table>
+      <div id="drainTotals" style="margin-top:6px;"></div>
+    </div>
+    <div class="ocr-footer" style="grid-template-columns:1fr;">
+      <button class="ocr-apply-btn" onclick="closeDrainModal()">✅ Done</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════════ FIREBASE ══════════════ -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -496,6 +533,25 @@ const HOURS = [
   {k:'1a', l:'1 AM'}, {k:'2a', l:'2 AM'}, {k:'3a', l:'3 AM'}, {k:'4a', l:'4 AM'},
   {k:'5a', l:'5 AM'}, {k:'6a', l:'6 AM'}
 ];
+
+// Tank Drain Calculation — cm→m³ factor per tank, matching the reference
+// sheet's "Drain Calculation" table exactly. defaultStream is a starting
+// guess (GB tanks → Marine, the rest → Land) — overridable per-tank in the
+// Drain modal, so a wrong guess here costs one tap, not a data problem.
+const TANKS = [
+  { key:'TK-1',    factor:19.25, defaultStream:'land'   },
+  { key:'TK-2',    factor:19.25, defaultStream:'land'   },
+  { key:'TK3',     factor:19.25, defaultStream:'land'   },
+  { key:'TK4',     factor:19.25, defaultStream:'land'   },
+  { key:'TK-14',   factor:8.9,   defaultStream:'land'   },
+  { key:'TK-5',    factor:18.6,  defaultStream:'land'   },
+  { key:'TK-6',    factor:18.35, defaultStream:'land'   },
+  { key:'TK-8',    factor:44.35, defaultStream:'land'   },
+  { key:'TK-9',    factor:44.35, defaultStream:'land'   },
+  { key:'TK GB-2', factor:6.74,  defaultStream:'marine' },
+  { key:'TK GB-3', factor:5.73,  defaultStream:'marine' }
+];
+function tankIdSafe(key){ return key.replace(/[^A-Za-z0-9_-]/g, '_'); }
 
 let currentDate = today();
 let _saveTimer = null;
@@ -562,7 +618,25 @@ function readState(){
   const zeitco     = numOrNull(document.getElementById('inZeitco').value);
   const shedwan    = numOrNull(document.getElementById('inShedwan').value);
   const condensate = numOrNull(document.getElementById('inCondensate').value);
-  return { date: currentDate, petreco: petreco, marine: marine, zeitco: zeitco, shedwan: shedwan, condensate: condensate };
+  const drain = readDrainState();
+  return { date: currentDate, petreco: petreco, marine: marine, zeitco: zeitco, shedwan: shedwan, condensate: condensate, drain: drain };
+}
+
+// Reads the Drain modal's inputs. Blank cm stays null (not 0) when SAVED —
+// same "don't persist a fake zero" rule already applied to Zeitco/Shedwan/
+// Condensate — math treats a blank/null cm as 0 inside computeDrain().
+function readDrainState(){
+  const drain = {};
+  TANKS.forEach(function(t){
+    const id = tankIdSafe(t.key);
+    const cmEl = document.getElementById('drain_cm_' + id);
+    const streamBtn = document.getElementById('drain_stream_' + id);
+    drain[t.key] = {
+      cm: cmEl ? numOrNull(cmEl.value) : null,
+      stream: streamBtn ? streamBtn.getAttribute('data-stream') : t.defaultStream
+    };
+  });
+  return drain;
 }
 
 function average(arr){
@@ -571,17 +645,46 @@ function average(arr){
   return vals.reduce(function(a,b){ return a+b; }, 0) / vals.length;
 }
 
+// Each tank's cm × its own factor = m³ drained; grouped by which stream
+// (Land/Petreco or Marine) that tank is assigned to.
+function computeDrain(drainState){
+  const rows = TANKS.map(function(t){
+    const entry = (drainState && drainState[t.key]) || {};
+    const cm = entry.cm || 0;
+    const stream = entry.stream || t.defaultStream;
+    const m3 = cm * t.factor;
+    return { key: t.key, cm: cm, stream: stream, factor: t.factor, m3: m3, bbl: m3 * CONV };
+  });
+  const landDrain_m3   = rows.filter(function(r){ return r.stream === 'land'; }).reduce(function(a,r){ return a + r.m3; }, 0);
+  const marineDrain_m3 = rows.filter(function(r){ return r.stream === 'marine'; }).reduce(function(a,r){ return a + r.m3; }, 0);
+  const totalDrain_m3  = landDrain_m3 + marineDrain_m3;
+  return {
+    rows: rows,
+    landDrain_m3: landDrain_m3, marineDrain_m3: marineDrain_m3, totalDrain_m3: totalDrain_m3,
+    landDrain_bbl: landDrain_m3 * CONV, marineDrain_bbl: marineDrain_m3 * CONV, totalDrain_bbl: totalDrain_m3 * CONV
+  };
+}
+
 function compute(state){
   const avgPetreco = average(state.petreco);
   const avgMarine  = average(state.marine);
 
+  // "Total Land" / "Total Marine" stay the pure hourly-average figures they
+  // always were — drain is applied downstream of these, not inside them,
+  // so this section's meaning doesn't silently change.
   const landRaw_m3   = avgPetreco * 24;
   const marineRaw_m3 = avgMarine * 24;
   const landRaw_bbl   = landRaw_m3 * CONV;
   const marineRaw_bbl = marineRaw_m3 * CONV;
 
-  const receivedFeiran_m3  = landRaw_m3 + marineRaw_m3;
-  const receivedFeiran_bbl = landRaw_bbl + marineRaw_bbl;
+  const drain = computeDrain(state.drain);
+
+  // Drain comes off both totals (per your call), split by stream.
+  const landAfterDrain_m3   = landRaw_m3 - drain.landDrain_m3;
+  const marineAfterDrain_m3 = marineRaw_m3 - drain.marineDrain_m3;
+
+  const receivedFeiran_m3  = landAfterDrain_m3 + marineAfterDrain_m3;
+  const receivedFeiran_bbl = receivedFeiran_m3 * CONV;
 
   // Zeitco / Shedwan / Condensate are entered in BBL — convert to m³ before
   // subtracting, since all Land/Marine math above is carried in m³.
@@ -592,8 +695,8 @@ function compute(state){
   const zeitco_m3   = zeitco_bbl / CONV;
   const shedCond_m3 = shedCond_bbl / CONV;
 
-  const netLand_m3   = landRaw_m3 - zeitco_m3;
-  const netMarine_m3 = marineRaw_m3 - shedCond_m3;
+  const netLand_m3   = landAfterDrain_m3 - zeitco_m3;
+  const netMarine_m3 = marineAfterDrain_m3 - shedCond_m3;
   const netLand_bbl   = netLand_m3 * CONV;
   const netMarine_bbl = netMarine_m3 * CONV;
 
@@ -609,7 +712,8 @@ function compute(state){
     zeitco_m3: zeitco_m3, shedCond_m3: shedCond_m3,
     netLand_m3: netLand_m3, netMarine_m3: netMarine_m3,
     netLand_bbl: netLand_bbl, netMarine_bbl: netMarine_bbl,
-    totalNet_m3: totalNet_m3, totalNet_bbl: totalNet_bbl
+    totalNet_m3: totalNet_m3, totalNet_bbl: totalNet_bbl,
+    drain: drain
   };
 }
 
@@ -634,6 +738,10 @@ function render(){
   setField('fMarineBbl', r.netMarine_bbl, 0);
   setField('fLandRawBbl', r.landRaw_bbl, 0);
   setField('fMarineRawBbl', r.marineRaw_bbl, 0);
+  setField('fDrainLand', r.drain.landDrain_bbl, 0);
+  setField('fDrainMarine', r.drain.marineDrain_bbl, 0);
+  setField('fDrainTotal', r.drain.totalDrain_bbl, 0);
+  renderDrainModalOutputs(r.drain);
 }
 function setField(id, val, decimals){
   const el = document.getElementById(id);
@@ -641,6 +749,65 @@ function setField(id, val, decimals){
   const unitHtml = unitEl ? unitEl.outerHTML : '';
   el.innerHTML = fmtNum(val, decimals) + unitHtml;
 }
+
+// ══════════════════════════════════════════
+//  TANK DRAIN CALCULATION
+//  Matches the reference sheet's own "Drain Calculation" table (per-tank
+//  cm→m³ factor). Reduces BOTH the gross "Received at Feiran" and the net
+//  "Total Production per Day" totals, split by which stream (Land/Marine)
+//  each tank is assigned to. "Total Land"/"Total Marine" themselves are
+//  untouched — see compute() comments.
+// ══════════════════════════════════════════
+function buildDrainTable(){
+  const body = document.getElementById('drainBody');
+  body.innerHTML = TANKS.map(function(t){
+    const id = tankIdSafe(t.key);
+    return '<tr>' +
+      '<td class="hr-lbl">' + escHtml(t.key) + '</td>' +
+      '<td><input type="text" inputmode="decimal" lang="en" id="drain_cm_' + id + '" oninput="sanitizeNumInput(this); onDrainInputChange()" placeholder="0"></td>' +
+      '<td class="drain-out" id="drain_m3_' + id + '">0</td>' +
+      '<td class="drain-out" id="drain_bbl_' + id + '">0</td>' +
+      '<td><button type="button" class="stream-toggle ' + t.defaultStream + '" id="drain_stream_' + id + '" data-stream="' + t.defaultStream + '" onclick="toggleDrainStream(\'' + id + '\')">' + t.defaultStream.toUpperCase() + '</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function toggleDrainStream(id){
+  const btn = document.getElementById('drain_stream_' + id);
+  const next = (btn.getAttribute('data-stream') === 'land') ? 'marine' : 'land';
+  btn.setAttribute('data-stream', next);
+  btn.textContent = next.toUpperCase();
+  btn.className = 'stream-toggle ' + next;
+  onDrainInputChange();
+}
+
+function onDrainInputChange(){
+  onInputChange(); // render() (which refreshes the drain modal too) + Firestore autosave — same pipeline as every other field
+}
+
+// Refreshes each tank row's computed M³/BBL and the totals footer. Cheap
+// no-op-safe if the modal's table hasn't been built yet or isn't open.
+function renderDrainModalOutputs(drain){
+  const body = document.getElementById('drainBody');
+  if (!body || !body.children.length) return;
+  drain.rows.forEach(function(row){
+    const id = tankIdSafe(row.key);
+    const m3El = document.getElementById('drain_m3_' + id);
+    const bblEl = document.getElementById('drain_bbl_' + id);
+    if (m3El) m3El.textContent = fmtNum(row.m3, 2);
+    if (bblEl) bblEl.textContent = fmtNum(row.bbl, 1);
+  });
+  const totalsEl = document.getElementById('drainTotals');
+  if (totalsEl) {
+    totalsEl.innerHTML =
+      '<div class="drain-tot-row"><span>Total Land Drain</span><b>' + fmtNum(drain.landDrain_m3,2) + ' m³ · ' + fmtNum(drain.landDrain_bbl,1) + ' bbl</b></div>' +
+      '<div class="drain-tot-row"><span>Total Marine Drain</span><b>' + fmtNum(drain.marineDrain_m3,2) + ' m³ · ' + fmtNum(drain.marineDrain_bbl,1) + ' bbl</b></div>' +
+      '<div class="drain-tot-row grand"><span>Combined Total Drain</span><b>' + fmtNum(drain.totalDrain_m3,2) + ' m³ · ' + fmtNum(drain.totalDrain_bbl,1) + ' bbl</b></div>';
+  }
+}
+
+function openDrainModal(){ document.getElementById('drainOverlay').classList.add('show'); }
+function closeDrainModal(){ document.getElementById('drainOverlay').classList.remove('show'); }
 
 // ══════════════════════════════════════════
 //  PRINT / SAVE REPORT
@@ -711,6 +878,9 @@ function buildReportBodyHtml(){
       '<tr><th>Marine (bbl, net)</th><td colspan="2">' + fmtNum(r.netMarine_bbl,0) + ' bbl/d</td></tr>' +
       '<tr><th>Total Land (bbl)</th><td colspan="2">' + fmtNum(r.landRaw_bbl,0) + ' bbl/d</td></tr>' +
       '<tr><th>Total Marine (bbl)</th><td colspan="2">' + fmtNum(r.marineRaw_bbl,0) + ' bbl/d</td></tr>' +
+      '<tr><th>Drain — Land</th><td colspan="2">' + fmtNum(r.drain.landDrain_bbl,0) + ' bbl/d</td></tr>' +
+      '<tr><th>Drain — Marine</th><td colspan="2">' + fmtNum(r.drain.marineDrain_bbl,0) + ' bbl/d</td></tr>' +
+      '<tr class="pr-total"><th>Drain — Total</th><td colspan="2">' + fmtNum(r.drain.totalDrain_bbl,0) + ' bbl/d</td></tr>' +
     '</table>' +
 
     '<div class="pr-footer">PETROBEL — Accounting Production · Conversion factor 1 m³ = 6.292316 bbl</div>';
@@ -862,6 +1032,9 @@ function generateReportPdf(){
   dataRow('Marine (bbl, net)', fmtNum(r.netMarine_bbl,0)+' bbl/d');
   dataRow('Total Land (bbl)', fmtNum(r.landRaw_bbl,0)+' bbl/d');
   dataRow('Total Marine (bbl)', fmtNum(r.marineRaw_bbl,0)+' bbl/d');
+  dataRow('Drain - Land', fmtNum(r.drain.landDrain_bbl,0)+' bbl/d');
+  dataRow('Drain - Marine', fmtNum(r.drain.marineDrain_bbl,0)+' bbl/d');
+  dataRow('Drain - Total', fmtNum(r.drain.totalDrain_bbl,0)+' bbl/d', true);
 
   doc.setFontSize(8); doc.setTextColor(120, 120, 120);
   doc.text('PETROBEL - Accounting Production | Conversion factor 1 m3 = 6.292316 bbl', marginX, 290);
@@ -1215,6 +1388,7 @@ function saveToFirestore(){
     zeitco: state.zeitco,
     shedwan: state.shedwan,
     condensate: state.condensate,
+    drain: state.drain,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     updatedBy: currentUser ? currentUser.email : null
   }).then(function(){
@@ -1242,11 +1416,24 @@ function applyStateToInputs(data){
   document.getElementById('inZeitco').value     = (data.zeitco!==undefined && data.zeitco!==null) ? data.zeitco : '';
   document.getElementById('inShedwan').value    = (data.shedwan!==undefined && data.shedwan!==null) ? data.shedwan : '';
   document.getElementById('inCondensate').value = (data.condensate!==undefined && data.condensate!==null) ? data.condensate : '';
+  TANKS.forEach(function(t){
+    const id = tankIdSafe(t.key);
+    const entry = (data.drain && data.drain[t.key]) || {};
+    const cmEl = document.getElementById('drain_cm_' + id);
+    const streamBtn = document.getElementById('drain_stream_' + id);
+    if (cmEl) cmEl.value = (entry.cm !== undefined && entry.cm !== null) ? entry.cm : '';
+    if (streamBtn) {
+      const stream = entry.stream || t.defaultStream;
+      streamBtn.setAttribute('data-stream', stream);
+      streamBtn.textContent = stream.toUpperCase();
+      streamBtn.className = 'stream-toggle ' + stream;
+    }
+  });
   _applyingRemote = false;
   render();
 }
 function clearInputs(){
-  applyStateToInputs({ petreco: [], marine: [], zeitco: null, shedwan: null, condensate: null });
+  applyStateToInputs({ petreco: [], marine: [], zeitco: null, shedwan: null, condensate: null, drain: {} });
 }
 
 function startListener(dateStr){
@@ -1372,6 +1559,7 @@ setTimeout(function(){ if (!_authResolved) showLogin(); }, 5000);
 
 document.addEventListener('DOMContentLoaded', function() {
   buildHourlyTable();
+  buildDrainTable();
   render();
   const passInput = document.getElementById('loginPassword');
   const emailInput = document.getElementById('loginEmail');
