@@ -314,7 +314,7 @@ table.ocr-review input:focus{border-color:var(--accent);}
 
   <div class="app-header">
     <h1>Accounting Prod.</h1>
-    <div class="sub">Fieran Terminal — Petreco &amp; Marine Daily Production</div>
+    <div class="sub">Fieran Terminal — Land &amp; Marine Daily Production</div>
     <div class="date-bar">
       <label for="prodDate">Date</label>
       <div class="date-field-wrap">
@@ -349,21 +349,21 @@ table.ocr-review input:focus{border-color:var(--accent);}
       </div>
     </div>
 
-    <!-- Hourly Petreco / Marine input -->
+    <!-- Hourly Land / Marine input -->
     <div class="section">
       <div class="sec-title">
-        <span>🕐 Hourly Readings — Petreco &amp; Marine (m³)</span>
+        <span>🕐 Hourly Readings — Land &amp; Marine (m³)</span>
       </div>
       <table class="hr-tbl">
-        <thead><tr><th style="text-align:left;padding-left:12px;">Hour</th><th>Marine</th><th>Petreco</th></tr></thead>
+        <thead><tr><th style="text-align:left;padding-left:12px;">Hour</th><th>Marine</th><th>Land</th></tr></thead>
         <tbody id="hourlyBody"></tbody>
       </table>
     </div>
 
     <!-- Averages / raw daily -->
     <div class="section">
-      <div class="sec-title">📊 Land (Petreco) &amp; Marine — Daily</div>
-      <div class="field"><span class="f-label">Avg Petreco (hourly)</span><span class="f-val" id="fAvgPetreco">0<span class="u">m³/hr</span></span></div>
+      <div class="sec-title">📊 Land &amp; Marine — Daily</div>
+      <div class="field"><span class="f-label">Avg Land (hourly)</span><span class="f-val" id="fAvgPetreco">0<span class="u">m³/hr</span></span></div>
       <div class="field"><span class="f-label">Avg Marine (hourly)</span><span class="f-val" id="fAvgMarine">0<span class="u">m³/hr</span></span></div>
       <div class="field"><span class="f-label">Total Land</span><span class="f-val" id="fLandRaw">0<span class="u">m³/d</span></span></div>
       <div class="field"><span class="f-label">Total Marine</span><span class="f-val" id="fMarineRaw">0<span class="u">m³/d</span></span></div>
@@ -452,7 +452,7 @@ table.ocr-review input:focus{border-color:var(--accent);}
       <div id="ocrReviewSection" style="display:none;">
         <div class="ocr-step-lbl">Step 2 — Column mapping</div>
         <div class="ocr-map-toggle">
-          <span class="lbl">Col 5 (M3 · MARIN) → <span class="val" id="ocrMapCol5">MARINE</span> &nbsp;|&nbsp; Col 9 (M3 · LAND) → <span class="val" id="ocrMapCol9">PETRECO</span></span>
+          <span class="lbl">Col 5 (M3 · MARIN) → <span class="val" id="ocrMapCol5">MARINE</span> &nbsp;|&nbsp; Col 9 (M3 · LAND) → <span class="val" id="ocrMapCol9">LAND</span></span>
           <button class="ocr-swap-btn" onclick="swapOcrMapping()">⇄ Swap</button>
         </div>
 
@@ -460,7 +460,7 @@ table.ocr-review input:focus{border-color:var(--accent);}
         <div class="ocr-hint">Extracted values are matched to hours in top-to-bottom order. This sheet may start at a different hour than the app's 7 AM cycle — check alignment below and edit any row. Blank = not applied for that hour.</div>
         <div class="ocr-legend"><span class="dot"></span>Amber border = low-confidence read, please double-check</div>
         <table class="ocr-review">
-          <thead><tr><th style="text-align:left;padding-left:10px;">Hour</th><th id="ocrThMarine">Marine</th><th id="ocrThPetreco">Petreco</th></tr></thead>
+          <thead><tr><th style="text-align:left;padding-left:10px;">Hour</th><th id="ocrThMarine">Marine</th><th id="ocrThPetreco">Land</th></tr></thead>
           <tbody id="ocrReviewBody"></tbody>
         </table>
       </div>
@@ -481,7 +481,7 @@ table.ocr-review input:focus{border-color:var(--accent);}
       <button class="ocr-close" onclick="closeDrainModal()">✕</button>
     </div>
     <div class="ocr-body">
-      <div class="ocr-hint">Enter the CM drained for any tank(s) used today. Each tank converts at its own cm→m³ factor, matching the reference sheet. The total is subtracted from <b>both</b> Received at Feiran and Total Production per Day, split by stream. Tap LAND/MARINE to reassign a tank if the default is wrong for it.</div>
+      <div class="ocr-hint">Enter the CM drained for any tank(s) used today. Each tank converts at its own cm→m³ factor, matching the reference sheet. The total is subtracted from <b>both</b> Received at Feiran and Total Production per Day, split by stream (Land/Marine assignment shown below). Tap LAND/MARINE to override for a specific day if ever needed.</div>
       <table class="ocr-review">
         <thead><tr><th style="text-align:left;padding-left:10px;">Tank</th><th>CM</th><th>M³</th><th>BBL</th><th>Stream</th></tr></thead>
         <tbody id="drainBody"></tbody>
@@ -535,18 +535,25 @@ const HOURS = [
 ];
 
 // Tank Drain Calculation — cm→m³ factor per tank, matching the reference
-// sheet's "Drain Calculation" table exactly. defaultStream is a starting
-// guess (GB tanks → Marine, the rest → Land) — overridable per-tank in the
-// Drain modal, so a wrong guess here costs one tap, not a data problem.
+// sheet's "Drain Calculation" table exactly.
+//
+// Stream assignment (Land vs Marine) is EXPLICIT, given directly — not
+// guessed from naming. This is foundational: future Land/Marine production
+// calculations build on this split, so don't "clean up" or re-guess it.
+//   Land:   TK-2, TK3, TK4, TK-9, TK-14
+//   Marine: TK-1, TK-5, TK-6, TK-8   (+ TK-7, once its factor is known — see
+//           ACCOUNTING_PROD_REFERENCE.md §4.1 for the open item)
+// TK GB-2 / TK GB-3 predate this explicit list and aren't part of it —
+// left as their prior default (Marine) pending confirmation, not removed.
 const TANKS = [
-  { key:'TK-1',    factor:19.25, defaultStream:'land'   },
+  { key:'TK-1',    factor:19.25, defaultStream:'marine' },
   { key:'TK-2',    factor:19.25, defaultStream:'land'   },
   { key:'TK3',     factor:19.25, defaultStream:'land'   },
   { key:'TK4',     factor:19.25, defaultStream:'land'   },
   { key:'TK-14',   factor:8.9,   defaultStream:'land'   },
-  { key:'TK-5',    factor:18.6,  defaultStream:'land'   },
-  { key:'TK-6',    factor:18.35, defaultStream:'land'   },
-  { key:'TK-8',    factor:44.35, defaultStream:'land'   },
+  { key:'TK-5',    factor:18.6,  defaultStream:'marine' },
+  { key:'TK-6',    factor:18.35, defaultStream:'marine' },
+  { key:'TK-8',    factor:44.35, defaultStream:'marine' },
   { key:'TK-9',    factor:44.35, defaultStream:'land'   },
   { key:'TK GB-2', factor:6.74,  defaultStream:'marine' },
   { key:'TK GB-3', factor:5.73,  defaultStream:'marine' }
@@ -557,6 +564,15 @@ let currentDate = today();
 let _saveTimer = null;
 let _unsub = null;
 let _applyingRemote = false;
+
+// Zeitco/Shedwan/Condensate "carry forward" — these change rarely, so a new
+// day with no doc of its own yet pre-fills from the last value saved on ANY
+// day, rather than starting blank. Kept live via its own tiny listener so a
+// change made from another device shows up immediately on a still-blank day.
+const EXTRAS_DOC_ID = '_extras';
+let _extrasCache = { zeitco: null, shedwan: null, condensate: null };
+let _extrasUnsub = null;
+let _dayDocExists = false; // does the CURRENTLY selected date already have its own saved doc?
 
 function today(){ return new Date().toISOString().slice(0,10); }
 function fmtNum(n, d){ if(n===null||n===undefined||isNaN(n)) return '0'; return Number(n).toLocaleString('en-US', {minimumFractionDigits:d||0, maximumFractionDigits:d||0}); }
@@ -646,7 +662,7 @@ function average(arr){
 }
 
 // Each tank's cm × its own factor = m³ drained; grouped by which stream
-// (Land/Petreco or Marine) that tank is assigned to.
+// (Land or Marine) that tank is assigned to.
 function computeDrain(drainState){
   const rows = TANKS.map(function(t){
     const entry = (drainState && drainState[t.key]) || {};
@@ -851,8 +867,8 @@ function buildReportBodyHtml(){
     '<div class="pr-meta">Date: <b>' + escHtml(dateStr) + '</b> &nbsp;|&nbsp; Printed: ' + escHtml(printedAt) + ' &nbsp;|&nbsp; By: ' + escHtml(byUser) + '</div>' +
 
     '<table class="pr-table"><caption>📥 Received at Feiran (Gross — with Zeitco / Shedwan / Condensate)</caption>' +
-      '<tr><th>Land raw</th><td>' + fmtNum(r.landRaw_m3,1) + ' m³/d</td><td>' + fmtNum(r.landRaw_bbl,0) + ' bbl/d</td></tr>' +
-      '<tr><th>Marine raw</th><td>' + fmtNum(r.marineRaw_m3,1) + ' m³/d</td><td>' + fmtNum(r.marineRaw_bbl,0) + ' bbl/d</td></tr>' +
+      '<tr><th>Total Land</th><td>' + fmtNum(r.landRaw_m3,1) + ' m³/d</td><td>' + fmtNum(r.landRaw_bbl,0) + ' bbl/d</td></tr>' +
+      '<tr><th>Total Marine</th><td>' + fmtNum(r.marineRaw_m3,1) + ' m³/d</td><td>' + fmtNum(r.marineRaw_bbl,0) + ' bbl/d</td></tr>' +
       '<tr class="pr-total"><th>Total Received at Feiran</th><td>' + fmtNum(r.receivedFeiran_m3,1) + ' m³/d</td><td>' + fmtNum(r.receivedFeiran_bbl,0) + ' bbl/d</td></tr>' +
     '</table>' +
 
@@ -862,8 +878,8 @@ function buildReportBodyHtml(){
       '<tr class="pr-total"><th>Total Production per Day</th><td>' + fmtNum(r.totalNet_m3,1) + ' m³/d</td><td>' + fmtNum(r.totalNet_bbl,0) + ' bbl/d</td></tr>' +
     '</table>' +
 
-    '<table class="pr-table"><caption>📊 Land (Petreco) &amp; Marine — Daily</caption>' +
-      '<tr><th>Avg Petreco (hourly)</th><td colspan="2">' + fmtNum(r.avgPetreco,2) + ' m³/hr</td></tr>' +
+    '<table class="pr-table"><caption>📊 Land &amp; Marine — Daily</caption>' +
+      '<tr><th>Avg Land (hourly)</th><td colspan="2">' + fmtNum(r.avgPetreco,2) + ' m³/hr</td></tr>' +
       '<tr><th>Avg Marine (hourly)</th><td colspan="2">' + fmtNum(r.avgMarine,2) + ' m³/hr</td></tr>' +
       '<tr><th>Total Land</th><td colspan="2">' + fmtNum(r.landRaw_m3,1) + ' m³/d</td></tr>' +
       '<tr><th>Total Marine</th><td colspan="2">' + fmtNum(r.marineRaw_m3,1) + ' m³/d</td></tr>' +
@@ -874,10 +890,6 @@ function buildReportBodyHtml(){
     '<table class="pr-table"><caption>🧮 Full Breakdown</caption>' +
       '<tr><th>Zeitco field</th><td colspan="2">' + fmtNum(r.zeitco_bbl,1) + ' bbl/d</td></tr>' +
       '<tr><th>Shedwan + Condensate</th><td colspan="2">' + fmtNum(r.shedCond_bbl,1) + ' bbl/d</td></tr>' +
-      '<tr><th>Land (bbl, net)</th><td colspan="2">' + fmtNum(r.netLand_bbl,0) + ' bbl/d</td></tr>' +
-      '<tr><th>Marine (bbl, net)</th><td colspan="2">' + fmtNum(r.netMarine_bbl,0) + ' bbl/d</td></tr>' +
-      '<tr><th>Total Land (bbl)</th><td colspan="2">' + fmtNum(r.landRaw_bbl,0) + ' bbl/d</td></tr>' +
-      '<tr><th>Total Marine (bbl)</th><td colspan="2">' + fmtNum(r.marineRaw_bbl,0) + ' bbl/d</td></tr>' +
       '<tr><th>Drain — Land</th><td colspan="2">' + fmtNum(r.drain.landDrain_bbl,0) + ' bbl/d</td></tr>' +
       '<tr><th>Drain — Marine</th><td colspan="2">' + fmtNum(r.drain.marineDrain_bbl,0) + ' bbl/d</td></tr>' +
       '<tr class="pr-total"><th>Drain — Total</th><td colspan="2">' + fmtNum(r.drain.totalDrain_bbl,0) + ' bbl/d</td></tr>' +
@@ -1005,8 +1017,8 @@ function generateReportPdf(){
   }
 
   sectionTitle('RECEIVED AT FEIRAN (GROSS - with Zeitco / Shedwan / Condensate)');
-  dataRow('Land raw', fmtNum(r.landRaw_m3,1)+' m3/d', fmtNum(r.landRaw_bbl,0)+' bbl/d');
-  dataRow('Marine raw', fmtNum(r.marineRaw_m3,1)+' m3/d', fmtNum(r.marineRaw_bbl,0)+' bbl/d');
+  dataRow('Total Land', fmtNum(r.landRaw_m3,1)+' m3/d', fmtNum(r.landRaw_bbl,0)+' bbl/d');
+  dataRow('Total Marine', fmtNum(r.marineRaw_m3,1)+' m3/d', fmtNum(r.marineRaw_bbl,0)+' bbl/d');
   dataRow('Total Received at Feiran', fmtNum(r.receivedFeiran_m3,1)+' m3/d', fmtNum(r.receivedFeiran_bbl,0)+' bbl/d', true);
   y += 4;
 
@@ -1016,8 +1028,8 @@ function generateReportPdf(){
   dataRow('Total Production per Day', fmtNum(r.totalNet_m3,1)+' m3/d', fmtNum(r.totalNet_bbl,0)+' bbl/d', true);
   y += 4;
 
-  sectionTitle('LAND (PETRECO) & MARINE - DAILY');
-  dataRow('Avg Petreco (hourly)', fmtNum(r.avgPetreco,2)+' m3/hr');
+  sectionTitle('LAND & MARINE - DAILY');
+  dataRow('Avg Land (hourly)', fmtNum(r.avgPetreco,2)+' m3/hr');
   dataRow('Avg Marine (hourly)', fmtNum(r.avgMarine,2)+' m3/hr');
   dataRow('Total Land', fmtNum(r.landRaw_m3,1)+' m3/d');
   dataRow('Total Marine', fmtNum(r.marineRaw_m3,1)+' m3/d');
@@ -1028,10 +1040,6 @@ function generateReportPdf(){
   sectionTitle('FULL BREAKDOWN');
   dataRow('Zeitco field', fmtNum(r.zeitco_bbl,1)+' bbl/d');
   dataRow('Shedwan + Condensate', fmtNum(r.shedCond_bbl,1)+' bbl/d');
-  dataRow('Land (bbl, net)', fmtNum(r.netLand_bbl,0)+' bbl/d');
-  dataRow('Marine (bbl, net)', fmtNum(r.netMarine_bbl,0)+' bbl/d');
-  dataRow('Total Land (bbl)', fmtNum(r.landRaw_bbl,0)+' bbl/d');
-  dataRow('Total Marine (bbl)', fmtNum(r.marineRaw_bbl,0)+' bbl/d');
   dataRow('Drain - Land', fmtNum(r.drain.landDrain_bbl,0)+' bbl/d');
   dataRow('Drain - Marine', fmtNum(r.drain.marineDrain_bbl,0)+' bbl/d');
   dataRow('Drain - Total', fmtNum(r.drain.totalDrain_bbl,0)+' bbl/d', true);
@@ -1113,6 +1121,9 @@ function printReport(){
 let _ocrCanvas = null;
 let _ocrRawRows = [];                                  // parsed {col5:{text,conf}, col9:{text,conf}} per row
 let _ocrMapping = { col5: 'marine', col9: 'petreco' };  // which physical column feeds which form field
+// Internal key stays 'petreco' (drives the existing pet_/mar_ wiring below
+// unchanged) — this only controls what the toggle/label DISPLAYS as.
+function ocrStreamLabel(key){ return key === 'petreco' ? 'LAND' : (key || '').toUpperCase(); }
 let _tesseractLoading = null;
 
 function loadTesseractLib(){
@@ -1294,8 +1305,8 @@ async function runOcrExtraction(){
 function renderOcrReviewTable(){
   const petCol = (_ocrMapping.col9 === 'petreco') ? 'col9' : 'col5';
   const marCol = (petCol === 'col9') ? 'col5' : 'col9';
-  document.getElementById('ocrMapCol5').textContent = (_ocrMapping.col5 || '').toUpperCase();
-  document.getElementById('ocrMapCol9').textContent = (_ocrMapping.col9 || '').toUpperCase();
+  document.getElementById('ocrMapCol5').textContent = ocrStreamLabel(_ocrMapping.col5);
+  document.getElementById('ocrMapCol9').textContent = ocrStreamLabel(_ocrMapping.col9);
 
   const body = document.getElementById('ocrReviewBody');
   body.innerHTML = HOURS.map(function(h, i){
@@ -1381,7 +1392,11 @@ function scheduleSave(){
 }
 function saveToFirestore(){
   const state = readState();
-  db.collection('accountingProd').doc(state.date).set({
+  const batch = db.batch();
+  const dayRef    = db.collection('accountingProd').doc(state.date);
+  const extrasRef = db.collection('accountingProd').doc(EXTRAS_DOC_ID);
+
+  batch.set(dayRef, {
     date: state.date,
     petreco: state.petreco,
     marine: state.marine,
@@ -1391,7 +1406,20 @@ function saveToFirestore(){
     drain: state.drain,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     updatedBy: currentUser ? currentUser.email : null
-  }).then(function(){
+  });
+  // Zeitco/Shedwan/Condensate double as the running "last known" default for
+  // future blank days — written every save (including an explicit clear to
+  // blank, which correctly stops future days from carrying forward a stale
+  // number) so it's always exactly what was last actually saved.
+  batch.set(extrasRef, {
+    zeitco: state.zeitco,
+    shedwan: state.shedwan,
+    condensate: state.condensate,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedBy: currentUser ? currentUser.email : null
+  });
+
+  batch.commit().then(function(){
     setSyncPill('synced');
   }).catch(function(err){
     console.error('[Firestore] save failed', err);
@@ -1433,13 +1461,17 @@ function applyStateToInputs(data){
   render();
 }
 function clearInputs(){
-  applyStateToInputs({ petreco: [], marine: [], zeitco: null, shedwan: null, condensate: null, drain: {} });
+  applyStateToInputs({
+    petreco: [], marine: [], drain: {},
+    zeitco: _extrasCache.zeitco, shedwan: _extrasCache.shedwan, condensate: _extrasCache.condensate
+  });
 }
 
 function startListener(dateStr){
   if(_unsub) _unsub();
   setSyncPill('syncing');
   _unsub = db.collection('accountingProd').doc(dateStr).onSnapshot(function(doc){
+    _dayDocExists = doc.exists;
     if(doc.exists){
       applyStateToInputs(doc.data());
     } else {
@@ -1453,6 +1485,28 @@ function startListener(dateStr){
 }
 function stopListener(){
   if(_unsub){ _unsub(); _unsub = null; }
+}
+
+// Keeps _extrasCache current, and — if the selected day still has no doc of
+// its own — refreshes the 3 carried-forward fields live, so a Zeitco change
+// made from another device shows up immediately rather than only on next
+// date switch.
+function startExtrasListener(){
+  if(_extrasUnsub) return;
+  _extrasUnsub = db.collection('accountingProd').doc(EXTRAS_DOC_ID).onSnapshot(function(doc){
+    const d = doc.exists ? doc.data() : {};
+    _extrasCache = {
+      zeitco:     (d.zeitco     !== undefined) ? d.zeitco     : null,
+      shedwan:    (d.shedwan    !== undefined) ? d.shedwan    : null,
+      condensate: (d.condensate !== undefined) ? d.condensate : null
+    };
+    if (!_dayDocExists) clearInputs();
+  }, function(err){
+    console.error('[Firestore] extras listener error', err);
+  });
+}
+function stopExtrasListener(){
+  if (_extrasUnsub) { _extrasUnsub(); _extrasUnsub = null; }
 }
 
 // Renders the date in fixed English digits/month name, regardless of the
@@ -1532,6 +1586,7 @@ function showApp(user){
   currentDate = today();
   document.getElementById('prodDate').value = currentDate;
   updateDateDisplay();
+  startExtrasListener();
   startListener(currentDate);
 
   loadJsPdfLib().catch(function(){ /* will retry / fall back when Print is tapped */ });
@@ -1540,6 +1595,7 @@ function showApp(user){
 }
 function showLogin(){
   stopListener();
+  stopExtrasListener();
   document.getElementById('login-page').classList.remove('hidden');
   document.getElementById('userBar').classList.add('hidden');
   document.getElementById('appPage').style.display = 'none';
