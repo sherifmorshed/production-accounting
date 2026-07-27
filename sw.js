@@ -4,7 +4,7 @@
 //  requests are NEVER cached to prevent stale data.
 // ══════════════════════════════════════════
 
-const CACHE_NAME = 'accounting-prod-v19';
+const CACHE_NAME = 'accounting-prod-v12';
 
 // Only cache static files that don't change between sessions
 const STATIC_ASSETS = [
@@ -12,8 +12,7 @@ const STATIC_ASSETS = [
   './index.html',
   './manifest.json',
   './icon.png',
-  './icon-192.png',
-  './tank_calibration.json'
+  './icon-192.png'
 ];
 
 // Domains that must NEVER be cached (Firebase services)
