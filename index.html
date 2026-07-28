@@ -308,6 +308,8 @@ body.light-mode .ship-results{background:rgba(7,94,84,.04);border-color:rgba(7,9
 .ship-gauge-box.start .ship-gauge-lbl{color:var(--green);}
 .ship-gauge-box.end .ship-gauge-lbl{color:var(--red);}
 .ship-out .val{font-size:11px;color:var(--muted);}
+.ship-field .req{color:var(--red);font-weight:700;}
+.ship-field input.missing{border-color:var(--red);background:rgba(248,113,113,.06);}
 .ship-lab{padding:10px 14px;background:rgba(245,158,11,.05);border-bottom:1px solid var(--border);}
 body.light-mode .ship-lab{background:rgba(146,64,14,.05);}
 .ship-lab-title{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--accent2);font-family:'JetBrains Mono',monospace;margin-bottom:8px;font-weight:700;}
@@ -1149,7 +1151,7 @@ function addShipRow(stream){
             '<div class="ship-field"><label>Temp °C</label><input type="text" inputmode="decimal" lang="en" data-role="startTemp" placeholder="44" oninput="sanitizeNumInput(this); computeShipping()"></div>' +
           '</div>' +
           '<div class="ship-grid-2" style="margin-top:6px;">' +
-            '<div class="ship-field" style="grid-column:1 / -1;"><label>Density @15°C (VAC)</label><input type="text" inputmode="decimal" lang="en" data-role="startDens" placeholder="0.9243" oninput="sanitizeNumInput(this); computeShipping()"></div>' +
+            '<div class="ship-field" style="grid-column:1 / -1;"><label>Density @15°C (VAC) <span class="req">*</span></label><input type="text" inputmode="decimal" lang="en" data-role="startDens" placeholder="0.9243" oninput="sanitizeNumInput(this); computeShipping()"></div>' +
           '</div>' +
           '<div class="ship-grid-2 ship-out">' +
             '<div class="ship-field"><label>Volume m³</label><div class="val" data-role="startVol">—</div></div>' +
@@ -1163,7 +1165,7 @@ function addShipRow(stream){
             '<div class="ship-field"><label>Temp °C</label><input type="text" inputmode="decimal" lang="en" data-role="endTemp" placeholder="41" oninput="sanitizeNumInput(this); computeShipping()"></div>' +
           '</div>' +
           '<div class="ship-grid-2" style="margin-top:6px;">' +
-            '<div class="ship-field" style="grid-column:1 / -1;"><label>Density @15°C (VAC)</label><input type="text" inputmode="decimal" lang="en" data-role="endDens" placeholder="0.9243" oninput="sanitizeNumInput(this); computeShipping()"></div>' +
+            '<div class="ship-field" style="grid-column:1 / -1;"><label>Density @15°C (VAC) <span class="req">*</span></label><input type="text" inputmode="decimal" lang="en" data-role="endDens" placeholder="0.9243" oninput="sanitizeNumInput(this); computeShipping()"></div>' +
           '</div>' +
           '<div class="ship-grid-2 ship-out">' +
             '<div class="ship-field"><label>Volume m³</label><div class="val" data-role="endVol">—</div></div>' +
@@ -1249,9 +1251,14 @@ function computeShipping(){
       var sVol = (!isNaN(sMM) && TANK_CAL) ? calLookup(tankNum, sMM) : null;
       var eVol = (!isNaN(eMM) && TANK_CAL) ? calLookup(tankNum, eMM) : null;
 
-      // Each gauging gets its own VCF from its own density + temperature
+      // Each gauging gets its own VCF from its own density + temperature.
+      // Density is REQUIRED — without it there is no VCF, and therefore no
+      // quantity for that tank. Missing fields are flagged in red.
       var sVCF = (!isNaN(sDens) && !isNaN(sTemp)) ? astm54aVCF(sDens * 1000, sTemp) : null;
       var eVCF = (!isNaN(eDens) && !isNaN(eTemp)) ? astm54aVCF(eDens * 1000, eTemp) : null;
+
+      sDensIn.classList.toggle('missing', !isNaN(sGaugeM) && isNaN(sDens));
+      eDensIn.classList.toggle('missing', !isNaN(eGaugeM) && isNaN(eDens));
 
       var adjS = (sVol !== null && sVCF !== null) ? sVol * sVCF : null;
       var adjE = (eVol !== null && eVCF !== null) ? eVol * eVCF : null;
@@ -1320,7 +1327,8 @@ function computeShipping(){
 
 // ── Shipping Firestore persistence ──
 var _shipSaveTimer = null;
-var _shipLocalWrite = false; // true while we're saving OUR OWN edit — prevents
+var _shipLocalWrite = false;
+var _shipPendingDoc = null;  // remote update parked while the user is typing // true while we're saving OUR OWN edit — prevents
                              // the onSnapshot callback from tearing down and
                              // rebuilding every row (which kills focus/keyboard)
 
@@ -1386,37 +1394,104 @@ function restoreShipRows(stream, savedRows){
   });
 }
 var _shipUnsub = null;
+// True if the user is currently typing anywhere inside the Shipping tab.
+// Re-rendering under an active cursor destroys the focused <input>, which is
+// what was wiping values mid-entry.
+function _shipHasFocus(){
+  var a = document.activeElement;
+  if(!a) return false;
+  var tab = document.getElementById('tabContentShip');
+  return !!(tab && tab.contains(a) && (a.tagName === 'INPUT' || a.tagName === 'SELECT'));
+}
+
+// Snapshot of everything the user can type in the Shipping tab, used to tell
+// "this is just the echo of my own write" from "another device changed this".
+function _shipStateSignature(){
+  return JSON.stringify({
+    land: readShipRows('shipLandRows'),
+    marine: readShipRows('shipMarineRows'),
+    ld: document.getElementById('shipLandDensity').value || null,
+    lw: document.getElementById('shipLandWC').value || null,
+    md: document.getElementById('shipMarineDensity').value || null,
+    mw: document.getElementById('shipMarineWC').value || null
+  });
+}
+function _shipDocSignature(d){
+  function norm(rows){
+    return (rows || []).map(function(r){
+      return {
+        tank: r.tank, startGauge: r.startGauge || null, startTemp: r.startTemp || null,
+        startDens: r.startDens || null, endGauge: r.endGauge || null,
+        endTemp: r.endTemp || null, endDens: r.endDens || null
+      };
+    });
+  }
+  return JSON.stringify({
+    land: norm(d.landRows), marine: norm(d.marineRows),
+    ld: d.landDensity || null, lw: d.landWC || null,
+    md: d.marineDensity || null, mw: d.marineWC || null
+  });
+}
+
 function startShipListener(dateStr){
   if(_shipUnsub) _shipUnsub();
   _shipLocalWrite = false;
+  _shipPendingDoc = null;
   _shipUnsub = db.collection('accountingShipping').doc(dateStr).onSnapshot(function(doc){
-    if(_shipLocalWrite) return;
+    var d = doc.exists ? doc.data() : {};
 
-    if(doc.exists){
-      var d = doc.data();
-      restoreShipRows('land', d.landRows);
-      restoreShipRows('marine', d.marineRows);
-      document.getElementById('shipLandDensity').value = d.landDensity || '';
-      document.getElementById('shipLandWC').value = d.landWC || '';
-      document.getElementById('shipMarineDensity').value = d.marineDensity || '';
-      document.getElementById('shipMarineWC').value = d.marineWC || '';
-      computeShipping();
-    } else {
-      document.getElementById('shipLandRows').innerHTML = '';
-      document.getElementById('shipMarineRows').innerHTML = '';
-      document.getElementById('shipLandDensity').value = '';
-      document.getElementById('shipLandWC').value = '';
-      document.getElementById('shipMarineDensity').value = '';
-      document.getElementById('shipMarineWC').value = '';
-      computeShipping();
-    }
+    // 1) Identical to what's already on screen → nothing to do. This alone
+    //    absorbs every echo of our own save, regardless of network timing.
+    if(_shipDocSignature(d) === _shipStateSignature()) return;
+
+    // 2) The user is mid-entry → never yank the DOM out from under them.
+    //    Park the update and apply it once they've finished typing.
+    if(_shipHasFocus()){ _shipPendingDoc = d; return; }
+
+    _applyShipDoc(d);
   }, function(err){
     console.error('[Firestore] shipping listener error', err);
   });
 }
+
+function _applyShipDoc(d){
+  if(!d || !d.landRows && !d.marineRows && !d.landDensity && !d.marineDensity){
+    document.getElementById('shipLandRows').innerHTML = '';
+    document.getElementById('shipMarineRows').innerHTML = '';
+    document.getElementById('shipLandDensity').value = '';
+    document.getElementById('shipLandWC').value = '';
+    document.getElementById('shipMarineDensity').value = '';
+    document.getElementById('shipMarineWC').value = '';
+    computeShipping();
+    return;
+  }
+  restoreShipRows('land', d.landRows);
+  restoreShipRows('marine', d.marineRows);
+  document.getElementById('shipLandDensity').value = d.landDensity || '';
+  document.getElementById('shipLandWC').value = d.landWC || '';
+  document.getElementById('shipMarineDensity').value = d.marineDensity || '';
+  document.getElementById('shipMarineWC').value = d.marineWC || '';
+  computeShipping();
+}
+
+// When the user leaves a field, apply any remote update we parked while they
+// were typing.
+document.addEventListener('focusout', function(e){
+  var tab = document.getElementById('tabContentShip');
+  if(!tab || !tab.contains(e.target)) return;
+  setTimeout(function(){
+    if(_shipHasFocus()) return;           // moved to another field — still typing
+    if(!_shipPendingDoc) return;
+    var pending = _shipPendingDoc;
+    _shipPendingDoc = null;
+    if(_shipDocSignature(pending) !== _shipStateSignature()) _applyShipDoc(pending);
+  }, 120);
+});
+
 function stopShipListener(){
   if(_shipUnsub){ _shipUnsub(); _shipUnsub = null; }
   _shipLocalWrite = false;
+  _shipPendingDoc = null;
 }
 
 // ══════════════════════════════════════════
