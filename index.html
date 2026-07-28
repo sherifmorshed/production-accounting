@@ -312,6 +312,11 @@ body.light-mode .ship-results{background:rgba(7,94,84,.04);border-color:rgba(7,9
 body.light-mode .ship-lab{background:rgba(146,64,14,.05);}
 .ship-lab-title{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--accent2);font-family:'JetBrains Mono',monospace;margin-bottom:8px;font-weight:700;}
 .ship-lab .ship-field .val{color:var(--accent2);font-weight:700;}
+.z-samples{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 14px;}
+.z-sample{text-align:center;}
+.z-sample label{display:block;font-size:9px;color:var(--muted);letter-spacing:.4px;margin-bottom:4px;font-family:'JetBrains Mono',monospace;}
+.z-sample input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:14px;padding:8px 4px;text-align:center;outline:none;}
+.z-sample input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,200,240,.12);}
 .ship-cards{grid-template-columns:1fr 1fr;gap:10px;}
 .ship-cards .rc-val{font-size:24px;}
 .ship-cards .rc-lbl{font-size:10px;}
@@ -384,6 +389,7 @@ body.light-mode .ship-lab{background:rgba(146,64,14,.05);}
   <div class="tab-bar">
     <button class="tab-btn active" id="tabProd" onclick="showTab('prod')">⛽ Production</button>
     <button class="tab-btn" id="tabShip" onclick="showTab('ship')">🚢 Shipping</button>
+    <button class="tab-btn" id="tabZeit" onclick="showTab('zeit')">🛢️ Zeitco</button>
   </div>
 
   <!-- ══════════════ PRODUCTION TAB ══════════════ -->
@@ -569,6 +575,65 @@ body.light-mode .ship-lab{background:rgba(146,64,14,.05);}
 
   </div>
   </div><!-- end tabContentShip -->
+
+  <!-- ══════════════ ZEITCO TAB ══════════════ -->
+  <div class="tab-content" id="tabContentZeit" style="display:none;">
+  <div class="wrap">
+
+    <div class="result-cards">
+      <div class="result-card net">
+        <div class="rc-lbl">🛢️ Net Received Oil</div>
+        <div class="rc-val" id="zNetOil">0</div>
+        <div class="rc-sub">bbls</div>
+        <div class="rc-bbl" id="zNetOilNote">— avg BS&amp;W 0%</div>
+      </div>
+    </div>
+
+    <!-- Meter inputs -->
+    <div class="section">
+      <div class="sec-title">📏 Zeitco Coriolis Meter</div>
+      <div class="daily-grid" style="grid-template-columns:1fr 1fr;">
+        <div class="daily-field">
+          <label>Gross Oil Rate (Scanner)</label>
+          <input type="text" inputmode="decimal" lang="en" id="zScanner" placeholder="7926" oninput="sanitizeNumInput(this); computeZeitco()">
+          <div class="unit">bbls</div>
+        </div>
+        <div class="daily-field">
+          <label>Correction Factor</label>
+          <input type="text" inputmode="decimal" lang="en" id="zCorrFactor" placeholder="0.9837" oninput="sanitizeNumInput(this); computeZeitco()">
+          <div class="unit">meter factor</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BS&W samples -->
+    <div class="section">
+      <div class="sec-title">
+        <span>🧪 Daily Samples — BS&amp;W %</span>
+        <span class="avg" id="zSampleCount">0 used</span>
+      </div>
+      <div class="z-samples" id="zSamples"></div>
+      <div class="ship-sum-row net" style="margin:0 14px 12px;">
+        <span class="lbl">Average W.C % (BS&amp;W)</span>
+        <b id="zAvgWC">0.000</b><span class="u">%</span>
+      </div>
+    </div>
+
+    <!-- Breakdown -->
+    <div class="section">
+      <div class="sec-title">🧮 Breakdown</div>
+      <div class="field"><span class="f-label">Gross Oil Rate (Scanner)</span><span class="f-val" id="zfScanner">0<span class="u">bbls</span></span></div>
+      <div class="field"><span class="f-label">Correction Factor</span><span class="f-val" id="zfCorr">—</span></div>
+      <div class="field"><span class="f-label">Gross Oil Rate (Corrected)</span><span class="f-val" id="zfCorrected">0<span class="u">bbls</span></span></div>
+      <div class="field"><span class="f-label">Average W.C % (BS&amp;W)</span><span class="f-val" id="zfAvgWC">0<span class="u">%</span></span></div>
+      <div class="field"><span class="f-label">Net Received Oil</span><span class="f-val" id="zfNetOil">0<span class="u">bbls</span></span></div>
+      <div class="field"><span class="f-label">Received Water</span><span class="f-val" id="zfWater">0<span class="u">bbls</span></span></div>
+    </div>
+
+    <button class="print-btn" style="border-color:var(--green);color:var(--green);" onclick="pushZeitcoToProduction()">➡️ Use Net Oil as Zeitco in Production</button>
+
+  </div>
+  </div><!-- end tabContentZeit -->
 
   <div class="footer">PETROBEL · Accounting Prod. &nbsp;·&nbsp; <span class="footer-credit">Powered by <b>Sherif Morshed</b></span></div>
 </div>
@@ -997,7 +1062,7 @@ function closeDrainModal(){ document.getElementById('drainOverlay').classList.re
 //  TAB SWITCHING (Production | Shipping)
 // ══════════════════════════════════════════
 function showTab(tab){
-  var tabs = ['prod','ship'];
+  var tabs = ['prod','ship','zeit'];
   tabs.forEach(function(t){
     var btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
     var content = document.getElementById('tabContent' + t.charAt(0).toUpperCase() + t.slice(1));
@@ -1373,6 +1438,156 @@ function startShipListener(dateStr){
 function stopShipListener(){
   if(_shipUnsub){ _shipUnsub(); _shipUnsub = null; }
   _shipLocalWrite = false;
+}
+
+// ══════════════════════════════════════════
+//  ZEITCO — Coriolis meter receipt calculation
+//  Mirrors the Zeitco daily sheet exactly:
+//    Corrected Gross = MROUND(Scanner × Correction Factor, 1)
+//    Avg W.C %       = AVERAGE(non-blank BS&W samples)
+//    Net Received    = MROUND(Corrected × (100 − AvgWC) / 100, 1)
+//    Received Water  = Corrected − Net Received
+//  Excel's MROUND(x,1) is a round-to-nearest-integer, so Math.round matches.
+//  Verified against the 27/07/2026 sheet: 7926 × 0.9837 → 7797,
+//  avg 34.516667% → net 5106, water 2691. All exact.
+// ══════════════════════════════════════════
+var ZEIT_SAMPLE_COUNT = 6;
+
+function buildZeitcoSamples(){
+  var box = document.getElementById('zSamples');
+  if(!box) return;
+  var html = '';
+  for(var i = 1; i <= ZEIT_SAMPLE_COUNT; i++){
+    html +=
+      '<div class="z-sample">' +
+        '<label>#' + i + '</label>' +
+        '<input type="text" inputmode="decimal" lang="en" id="zS' + i + '" placeholder="—" oninput="sanitizeNumInput(this); computeZeitco()">' +
+      '</div>';
+  }
+  box.innerHTML = html;
+}
+
+function readZeitcoSamples(){
+  var vals = [];
+  for(var i = 1; i <= ZEIT_SAMPLE_COUNT; i++){
+    var el = document.getElementById('zS' + i);
+    if(!el) continue;
+    var v = numOrNull(el.value);
+    // Blank samples are skipped entirely — matching Excel's AVERAGE(), which
+    // ignores empty cells. Entering a single sample gives that sample as the
+    // average; a 0 is a real reading and IS counted.
+    if(v !== null) vals.push(v);
+  }
+  return vals;
+}
+
+function computeZeitco(){
+  var scanner = numOrNull(document.getElementById('zScanner').value);
+  var corrFactor = numOrNull(document.getElementById('zCorrFactor').value);
+  var samples = readZeitcoSamples();
+
+  var avgWC = samples.length
+    ? samples.reduce(function(a,b){ return a + b; }, 0) / samples.length
+    : null;
+
+  var corrected = (scanner !== null && corrFactor !== null)
+    ? Math.round(scanner * corrFactor)
+    : null;
+
+  var netOil = (corrected !== null && avgWC !== null)
+    ? Math.round(corrected * (100 - avgWC) / 100)
+    : null;
+
+  var water = (corrected !== null && netOil !== null) ? corrected - netOil : null;
+
+  document.getElementById('zSampleCount').textContent =
+    samples.length + (samples.length === 1 ? ' used' : ' used');
+  document.getElementById('zAvgWC').textContent = avgWC !== null ? avgWC.toFixed(3) : '0.000';
+
+  document.getElementById('zNetOil').textContent = netOil !== null ? fmtNum(netOil, 0) : '0';
+  document.getElementById('zNetOilNote').textContent = avgWC !== null
+    ? ('avg BS&W ' + avgWC.toFixed(3) + '% · ' + samples.length + ' sample' + (samples.length===1?'':'s'))
+    : 'enter samples';
+
+  setZField('zfScanner', scanner, 0);
+  document.getElementById('zfCorr').textContent = corrFactor !== null ? corrFactor.toFixed(4) : '—';
+  setZField('zfCorrected', corrected, 0);
+  setZField('zfAvgWC', avgWC, 3);
+  setZField('zfNetOil', netOil, 0);
+  setZField('zfWater', water, 0);
+
+  scheduleZeitSave();
+}
+function setZField(id, val, decimals){
+  var el = document.getElementById(id);
+  if(!el) return;
+  var unitEl = el.querySelector('.u');
+  var unitHtml = unitEl ? unitEl.outerHTML : '';
+  el.innerHTML = (val !== null && val !== undefined ? fmtNum(val, decimals) : '—') + unitHtml;
+}
+
+// Hands the computed Net Received Oil straight to the Production tab's
+// Zeitco field — that field is in bbl/d, which is exactly what this produces.
+function pushZeitcoToProduction(){
+  var txt = document.getElementById('zfNetOil').textContent.replace(/[^0-9.\-]/g, '');
+  var v = parseFloat(txt);
+  if(isNaN(v) || !v){ showToast('⚠️ Nothing to push — enter scanner + samples first', true); return; }
+  var zEl = document.getElementById('inZeitco');
+  zEl.value = String(Math.round(v));
+  onInputChange();
+  showTab('prod');
+  showToast('✅ Zeitco set to ' + fmtNum(Math.round(v), 0) + ' bbl in Production');
+}
+
+// ── Zeitco Firestore persistence ──
+var _zeitSaveTimer = null;
+var _zeitLocalWrite = false;
+function scheduleZeitSave(){
+  if(_zeitSaveTimer) clearTimeout(_zeitSaveTimer);
+  _zeitSaveTimer = setTimeout(saveZeitcoToFirestore, 800);
+}
+function saveZeitcoToFirestore(){
+  if(!currentUser) return;
+  _zeitLocalWrite = true;
+  var samples = {};
+  for(var i = 1; i <= ZEIT_SAMPLE_COUNT; i++){
+    var el = document.getElementById('zS' + i);
+    samples['s' + i] = el ? (el.value || null) : null;
+  }
+  db.collection('accountingZeitco').doc(currentDate).set({
+    scanner: document.getElementById('zScanner').value || null,
+    corrFactor: document.getElementById('zCorrFactor').value || null,
+    samples: samples,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedBy: currentUser ? currentUser.email : null
+  }).then(function(){
+    setTimeout(function(){ _zeitLocalWrite = false; }, 500);
+  }).catch(function(err){
+    _zeitLocalWrite = false;
+    console.error('[Firestore] zeitco save failed', err);
+  });
+}
+var _zeitUnsub = null;
+function startZeitListener(dateStr){
+  if(_zeitUnsub) _zeitUnsub();
+  _zeitLocalWrite = false;
+  _zeitUnsub = db.collection('accountingZeitco').doc(dateStr).onSnapshot(function(doc){
+    if(_zeitLocalWrite) return; // skip echo of our own write (keeps focus)
+    var d = doc.exists ? doc.data() : {};
+    document.getElementById('zScanner').value = d.scanner || '';
+    document.getElementById('zCorrFactor').value = d.corrFactor || '';
+    for(var i = 1; i <= ZEIT_SAMPLE_COUNT; i++){
+      var el = document.getElementById('zS' + i);
+      if(el) el.value = (d.samples && d.samples['s' + i]) ? d.samples['s' + i] : '';
+    }
+    computeZeitco();
+  }, function(err){
+    console.error('[Firestore] zeitco listener error', err);
+  });
+}
+function stopZeitListener(){
+  if(_zeitUnsub){ _zeitUnsub(); _zeitUnsub = null; }
+  _zeitLocalWrite = false;
 }
 
 // ══════════════════════════════════════════
@@ -2076,6 +2291,7 @@ function onDateChange(){
   updateDateDisplay();
   startListener(currentDate);
   startShipListener(currentDate);
+  startZeitListener(currentDate);
 }
 
 // ══════════════════════════════════════════
@@ -2140,6 +2356,7 @@ function showApp(user){
   startExtrasListener();
   startListener(currentDate);
   startShipListener(currentDate);
+  startZeitListener(currentDate);
 
   loadJsPdfLib().catch(function(){});
   loadTankCalibration().catch(function(err){ console.warn('[Cal] failed to load tank calibration', err); });
@@ -2150,6 +2367,7 @@ function showLogin(){
   stopListener();
   stopExtrasListener();
   stopShipListener();
+  stopZeitListener();
   document.getElementById('login-page').classList.remove('hidden');
   document.getElementById('userBar').classList.add('hidden');
   document.getElementById('appPage').style.display = 'none';
@@ -2170,6 +2388,7 @@ setTimeout(function(){ if (!_authResolved) showLogin(); }, 5000);
 document.addEventListener('DOMContentLoaded', function() {
   buildHourlyTable();
   buildDrainTable();
+  buildZeitcoSamples();
   render();
   const passInput = document.getElementById('loginPassword');
   const emailInput = document.getElementById('loginEmail');
