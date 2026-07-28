@@ -312,6 +312,18 @@ body.light-mode .ship-results{background:rgba(7,94,84,.04);border-color:rgba(7,9
 body.light-mode .ship-lab{background:rgba(146,64,14,.05);}
 .ship-lab-title{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--accent2);font-family:'JetBrains Mono',monospace;margin-bottom:8px;font-weight:700;}
 .ship-lab .ship-field .val{color:var(--accent2);font-weight:700;}
+.ship-cards{grid-template-columns:1fr 1fr;gap:10px;}
+.ship-cards .rc-val{font-size:24px;}
+.ship-cards .rc-lbl{font-size:10px;}
+.ship-summary{padding:10px 14px;border-top:1px solid var(--border);}
+.ship-sum-row{display:flex;align-items:baseline;gap:6px;padding:5px 0;font-family:'JetBrains Mono',monospace;font-size:11.5px;flex-wrap:wrap;border-bottom:1px solid rgba(128,128,128,.12);}
+.ship-sum-row:last-child{border-bottom:none;}
+.ship-sum-row .lbl{color:var(--muted);flex:1;min-width:130px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;}
+.ship-sum-row b{color:var(--text);font-size:13px;margin-left:4px;}
+.ship-sum-row .u{color:var(--muted);font-size:9px;margin-right:8px;}
+.ship-sum-row.water b{color:var(--accent2);}
+.ship-sum-row.net{border-top:2px solid var(--accent);margin-top:3px;padding-top:8px;}
+.ship-sum-row.net b{color:var(--accent);font-size:14px;font-weight:800;}
 </style>
 </head>
 <body>
@@ -465,14 +477,23 @@ body.light-mode .ship-lab{background:rgba(146,64,14,.05);}
   <div class="tab-content" id="tabContentShip" style="display:none;">
   <div class="wrap">
 
-    <!-- Shipping summary cards -->
-    <div class="result-cards">
+    <!-- Two INDEPENDENT shipment certificates. Land and Marine are separate
+         shipments (separate Shipment NO on the real report) with their own
+         blended density and W/C — they are never summed into one figure. -->
+    <div class="result-cards ship-cards">
       <div class="result-card received">
-        <div class="rc-lbl">🚢 Total Net Oil Loaded</div>
+        <div class="rc-lbl">⛽ Land — Net Oil Loaded</div>
         <div class="rc-val" id="shipTotalM3">0</div>
         <div class="rc-sub">m³ (net)</div>
         <div class="rc-bbl" id="shipTotalBbl">0 bbl</div>
         <div class="rc-bbl" id="shipTotalMT">0 MT</div>
+      </div>
+      <div class="result-card net">
+        <div class="rc-lbl">🌊 Marine — Net Oil Loaded</div>
+        <div class="rc-val" id="shipMarTotalM3">0</div>
+        <div class="rc-sub">m³ (net)</div>
+        <div class="rc-bbl" id="shipMarTotalBbl">0 bbl</div>
+        <div class="rc-bbl" id="shipMarTotalMT">0 MT</div>
       </div>
     </div>
 
@@ -483,30 +504,31 @@ body.light-mode .ship-lab{background:rgba(146,64,14,.05);}
         <button class="ship-add-btn" onclick="addShipRow('land')">+ Add Tank</button>
       </div>
       <div class="ship-lab">
-        <div class="ship-lab-title">🔬 Land Laboratory Data</div>
-        <div class="ship-grid">
+        <div class="ship-lab-title">🔬 Land Laboratory Data (blended average for the parcel)</div>
+        <div class="ship-grid" style="grid-template-columns:1fr 1fr 1fr 1fr;">
           <div class="ship-field">
-            <label>Density @15°C</label>
+            <label>Avg Density @15°C</label>
             <input type="text" inputmode="decimal" lang="en" id="shipLandDensity" placeholder="0.9243" oninput="sanitizeNumInput(this); computeShipping()">
           </div>
           <div class="ship-field">
-            <label>W/C %</label>
+            <label>Avg W/C % (blend)</label>
             <input type="text" inputmode="decimal" lang="en" id="shipLandWC" placeholder="0.20" oninput="sanitizeNumInput(this); computeShipping()">
           </div>
           <div class="ship-field">
             <label>API (calc)</label>
             <div class="val" id="shipLandAPI">—</div>
           </div>
+          <div class="ship-field">
+            <label>Dens. in Air</label>
+            <div class="val" id="shipLandAir">—</div>
+          </div>
         </div>
       </div>
       <div id="shipLandRows"></div>
-      <div class="ship-subtotal" id="shipLandSubtotal">
-        <span>Land Net Oil:</span>
-        <b id="shipLandM3">0 m³</b>
-        <span class="sep">·</span>
-        <b id="shipLandBbl">0 bbl</b>
-        <span class="sep">·</span>
-        <b id="shipLandMT">0 MT</b>
+      <div class="ship-summary">
+        <div class="ship-sum-row"><span class="lbl">Gross Oil Loaded</span><b id="shipLandGrossM3">0</b><span class="u">m³</span><b id="shipLandGrossMT">0</b><span class="u">MT</span><b id="shipLandGrossBbl">0</b><span class="u">bbl</span></div>
+        <div class="ship-sum-row water"><span class="lbl">Water Loaded (W/C avg)</span><b id="shipLandWaterM3">0</b><span class="u">m³</span></div>
+        <div class="ship-sum-row net"><span class="lbl">Net Oil Loaded</span><b id="shipLandNetM3">0</b><span class="u">m³</span><b id="shipLandNetMT">0</b><span class="u">MT</span><b id="shipLandNetBbl">0</b><span class="u">bbl</span></div>
       </div>
     </div>
 
@@ -517,30 +539,31 @@ body.light-mode .ship-lab{background:rgba(146,64,14,.05);}
         <button class="ship-add-btn" onclick="addShipRow('marine')">+ Add Tank</button>
       </div>
       <div class="ship-lab">
-        <div class="ship-lab-title">🔬 Marine Laboratory Data</div>
-        <div class="ship-grid">
+        <div class="ship-lab-title">🔬 Marine Laboratory Data (blended average for the parcel)</div>
+        <div class="ship-grid" style="grid-template-columns:1fr 1fr 1fr 1fr;">
           <div class="ship-field">
-            <label>Density @15°C</label>
+            <label>Avg Density @15°C</label>
             <input type="text" inputmode="decimal" lang="en" id="shipMarineDensity" placeholder="0.8850" oninput="sanitizeNumInput(this); computeShipping()">
           </div>
           <div class="ship-field">
-            <label>W/C %</label>
+            <label>Avg W/C % (blend)</label>
             <input type="text" inputmode="decimal" lang="en" id="shipMarineWC" placeholder="0.05" oninput="sanitizeNumInput(this); computeShipping()">
           </div>
           <div class="ship-field">
             <label>API (calc)</label>
             <div class="val" id="shipMarineAPI">—</div>
           </div>
+          <div class="ship-field">
+            <label>Dens. in Air</label>
+            <div class="val" id="shipMarineAir">—</div>
+          </div>
         </div>
       </div>
       <div id="shipMarineRows"></div>
-      <div class="ship-subtotal" id="shipMarineSubtotal">
-        <span>Marine Net Oil:</span>
-        <b id="shipMarineM3">0 m³</b>
-        <span class="sep">·</span>
-        <b id="shipMarineBbl">0 bbl</b>
-        <span class="sep">·</span>
-        <b id="shipMarineMT">0 MT</b>
+      <div class="ship-summary">
+        <div class="ship-sum-row"><span class="lbl">Gross Oil Loaded</span><b id="shipMarineGrossM3">0</b><span class="u">m³</span><b id="shipMarineGrossMT">0</b><span class="u">MT</span><b id="shipMarineGrossBbl">0</b><span class="u">bbl</span></div>
+        <div class="ship-sum-row water"><span class="lbl">Water Loaded (W/C avg)</span><b id="shipMarineWaterM3">0</b><span class="u">m³</span></div>
+        <div class="ship-sum-row net"><span class="lbl">Net Oil Loaded</span><b id="shipMarineNetM3">0</b><span class="u">m³</span><b id="shipMarineNetMT">0</b><span class="u">MT</span><b id="shipMarineNetBbl">0</b><span class="u">bbl</span></div>
       </div>
     </div>
 
@@ -1090,11 +1113,6 @@ function addShipRow(stream){
         '<div class="ship-field"><label>Adj End m³</label><div class="val" data-role="adjEnd">—</div></div>' +
         '<div class="ship-field"><label>Qty Loaded m³</label><div class="val" data-role="qtyLoaded">—</div></div>' +
       '</div>' +
-      '<div class="ship-results" style="margin-top:4px;">' +
-        '<div class="ship-field"><label>Net Oil m³</label><div class="val" data-role="netOil">—</div></div>' +
-        '<div class="ship-field"><label>Net Oil bbl</label><div class="val" data-role="netBbl">—</div></div>' +
-        '<div class="ship-field"><label>Metric Tons</label><div class="val" data-role="mt">—</div></div>' +
-      '</div>' +
     '</div>';
   container.insertAdjacentHTML('beforeend', html);
   if(!_shipLocalWrite) computeShipping();
@@ -1114,6 +1132,17 @@ function densityToAPI(densGcm3){
   return (141.5 / densGcm3) - 131.5;
 }
 
+// Density in Air = Density in Vacuum − 0.0011 (air buoyancy correction).
+// Metric tons are always computed from the IN-AIR density, per the shipment
+// report's own "Density IN Air" column — verified exactly against report
+// 9548: 0.8850 (VAC) − 0.0011 = 0.8839, and 29,864.207 MT ÷ 33,786.862 m³
+// = 0.88390. Using the vacuum density instead overstates MT by ~0.12%.
+var AIR_BUOYANCY_CORR = 0.0011;
+function densityInAir(densVacGcm3){
+  if(!densVacGcm3 || isNaN(densVacGcm3)) return null;
+  return densVacGcm3 - AIR_BUOYANCY_CORR;
+}
+
 function computeShipping(){
   var CONV_BBL = 6.292316;
 
@@ -1124,18 +1153,24 @@ function computeShipping(){
   var marineDens = parseFloat(toWesternDigits(document.getElementById('shipMarineDensity').value));
   var marineWC = parseFloat(toWesternDigits(document.getElementById('shipMarineWC').value));
 
-  // Live API display per stream
+  // Live API + density-in-air display per stream
   var landAPI = densityToAPI(landDens);
   var marineAPI = densityToAPI(marineDens);
+  var landAir = densityInAir(landDens);
+  var marineAir = densityInAir(marineDens);
   document.getElementById('shipLandAPI').textContent = landAPI !== null ? landAPI.toFixed(1) : '—';
   document.getElementById('shipMarineAPI').textContent = marineAPI !== null ? marineAPI.toFixed(1) : '—';
+  document.getElementById('shipLandAir').textContent = landAir !== null ? landAir.toFixed(4) : '—';
+  document.getElementById('shipMarineAir').textContent = marineAir !== null ? marineAir.toFixed(4) : '—';
 
-  function processRows(containerId, streamDens, streamWC){
+  // Per-tank: compute quantity loaded (gross). W/C is NOT applied here —
+  // it's a blended average for the whole parcel, applied to the stream
+  // total below, exactly as the shipment report's bottom table does it.
+  function processRows(containerId, streamDens){
     var container = document.getElementById(containerId);
-    if(!container) return { totalQtyM3:0, totalNetM3:0, totalMT:0 };
+    if(!container) return { grossM3: 0 };
     var rows = container.querySelectorAll('.ship-row');
-    var totalQtyM3=0, totalNetM3=0, totalMT=0;
-    var wcFraction = (!isNaN(streamWC) && streamWC >= 0) ? streamWC / 100 : 0;
+    var grossM3 = 0;
 
     rows.forEach(function(row){
       var tankSel = row.querySelector('[data-role=tank]');
@@ -1152,9 +1187,6 @@ function computeShipping(){
       var adjStartEl = row.querySelector('[data-role=adjStart]');
       var adjEndEl = row.querySelector('[data-role=adjEnd]');
       var qtyEl = row.querySelector('[data-role=qtyLoaded]');
-      var netEl = row.querySelector('[data-role=netOil]');
-      var netBblEl = row.querySelector('[data-role=netBbl]');
-      var mtEl = row.querySelector('[data-role=mt]');
 
       var tankNum = parseInt(tankSel.value.replace(/[^0-9]/g, ''), 10);
       var startGaugeM = parseFloat(toWesternDigits(startGaugeIn.value));
@@ -1162,13 +1194,12 @@ function computeShipping(){
       var endGaugeM = parseFloat(toWesternDigits(endGaugeIn.value));
       var endTemp = parseFloat(toWesternDigits(endTempIn.value));
 
-      // Per-tank density overrides the stream's lab density when provided —
-      // real shipment reports show density varying between tanks in the same
-      // parcel (e.g. 0.9255 on one tank, 0.9243 on the next).
+      // Per-tank density overrides the stream's average when provided —
+      // real reports show density varying between tanks in one parcel.
       var rowDens = parseFloat(toWesternDigits(densIn.value));
       var densGcm3 = !isNaN(rowDens) ? rowDens : streamDens;
 
-      // Gauge is entered in meters (e.g. 12.840) → convert to mm for calibration lookup
+      // Gauge entered in meters (e.g. 12.840) → mm for calibration lookup
       var startMM = !isNaN(startGaugeM) ? Math.round(startGaugeM * 1000) : NaN;
       var endMM = !isNaN(endGaugeM) ? Math.round(endGaugeM * 1000) : NaN;
 
@@ -1183,9 +1214,6 @@ function computeShipping(){
       var adjEnd = (volEnd !== null && vcfEnd !== null) ? volEnd * vcfEnd : null;
       var qtyM3 = (adjStart !== null && adjEnd !== null) ? adjStart - adjEnd : null;
 
-      var netM3 = (qtyM3 !== null) ? qtyM3 * (1 - wcFraction) : null;
-      var mt = (netM3 !== null && densKgm3) ? netM3 * densKgm3 / 1000 : null;
-
       startVolEl.textContent = volStart !== null ? fmtNum(volStart, 3) : '—';
       startVCFEl.textContent = vcfStart !== null ? vcfStart.toFixed(4) : '—';
       endVolEl.textContent = volEnd !== null ? fmtNum(volEnd, 3) : '—';
@@ -1193,32 +1221,57 @@ function computeShipping(){
       adjStartEl.textContent = adjStart !== null ? fmtNum(adjStart, 3) : '—';
       adjEndEl.textContent = adjEnd !== null ? fmtNum(adjEnd, 3) : '—';
       qtyEl.textContent = qtyM3 !== null ? fmtNum(qtyM3, 3) : '—';
-      netEl.textContent = netM3 !== null ? fmtNum(netM3, 3) : '—';
-      netBblEl.textContent = netM3 !== null ? fmtNum(netM3 * CONV_BBL, 0) : '—';
-      mtEl.textContent = mt !== null ? fmtNum(mt, 3) : '—';
 
-      if(qtyM3 !== null) totalQtyM3 += qtyM3;
-      if(netM3 !== null) totalNetM3 += netM3;
-      if(mt !== null) totalMT += mt;
+      if(qtyM3 !== null) grossM3 += qtyM3;
     });
 
-    return { totalQtyM3:totalQtyM3, totalNetM3:totalNetM3, totalMT:totalMT };
+    return { grossM3: grossM3 };
   }
 
-  var land = processRows('shipLandRows', landDens, landWC);
-  var marine = processRows('shipMarineRows', marineDens, marineWC);
-  var totalNetM3 = land.totalNetM3 + marine.totalNetM3;
-  var totalMT = land.totalMT + marine.totalMT;
+  // Apply the blended W/C to the stream's gross total → water, then net.
+  // MT always uses the IN-AIR density (see densityInAir above).
+  function streamTotals(grossM3, wcPct, densVac){
+    var wcFraction = (!isNaN(wcPct) && wcPct >= 0) ? wcPct / 100 : 0;
+    var waterM3 = grossM3 * wcFraction;
+    var netM3 = grossM3 - waterM3;
+    var air = densityInAir(densVac);
+    return {
+      grossM3: grossM3,
+      grossBbl: grossM3 * CONV_BBL,
+      grossMT: air ? grossM3 * air : 0,
+      waterM3: waterM3,
+      netM3: netM3,
+      netBbl: netM3 * CONV_BBL,
+      netMT: air ? netM3 * air : 0
+    };
+  }
 
-  document.getElementById('shipLandM3').textContent = fmtNum(land.totalNetM3, 3) + ' m³';
-  document.getElementById('shipLandBbl').textContent = fmtNum(land.totalNetM3 * CONV_BBL, 0) + ' bbl';
-  document.getElementById('shipLandMT').textContent = fmtNum(land.totalMT, 3) + ' MT';
-  document.getElementById('shipMarineM3').textContent = fmtNum(marine.totalNetM3, 3) + ' m³';
-  document.getElementById('shipMarineBbl').textContent = fmtNum(marine.totalNetM3 * CONV_BBL, 0) + ' bbl';
-  document.getElementById('shipMarineMT').textContent = fmtNum(marine.totalMT, 3) + ' MT';
-  document.getElementById('shipTotalM3').textContent = fmtNum(totalNetM3, 3);
-  document.getElementById('shipTotalBbl').textContent = fmtNum(totalNetM3 * CONV_BBL, 0) + ' bbl';
-  document.getElementById('shipTotalMT').textContent = fmtNum(totalMT, 3) + ' MT';
+  var landGross = processRows('shipLandRows', landDens);
+  var marineGross = processRows('shipMarineRows', marineDens);
+  var L = streamTotals(landGross.grossM3, landWC, landDens);
+  var M = streamTotals(marineGross.grossM3, marineWC, marineDens);
+
+  function setStream(prefix, t){
+    document.getElementById(prefix + 'GrossM3').textContent = fmtNum(t.grossM3, 3);
+    document.getElementById(prefix + 'GrossMT').textContent = fmtNum(t.grossMT, 3);
+    document.getElementById(prefix + 'GrossBbl').textContent = fmtNum(t.grossBbl, 1);
+    document.getElementById(prefix + 'WaterM3').textContent = fmtNum(t.waterM3, 3);
+    document.getElementById(prefix + 'NetM3').textContent = fmtNum(t.netM3, 3);
+    document.getElementById(prefix + 'NetMT').textContent = fmtNum(t.netMT, 3);
+    document.getElementById(prefix + 'NetBbl').textContent = fmtNum(t.netBbl, 1);
+  }
+  setStream('shipLand', L);
+  setStream('shipMarine', M);
+
+  // Headline cards — Land and Marine shown INDEPENDENTLY. They are separate
+  // shipments with separate blended densities and separate W/C, so they are
+  // deliberately never added together into one combined figure.
+  document.getElementById('shipTotalM3').textContent = fmtNum(L.netM3, 3);
+  document.getElementById('shipTotalBbl').textContent = fmtNum(L.netBbl, 1) + ' bbl';
+  document.getElementById('shipTotalMT').textContent = fmtNum(L.netMT, 3) + ' MT';
+  document.getElementById('shipMarTotalM3').textContent = fmtNum(M.netM3, 3);
+  document.getElementById('shipMarTotalBbl').textContent = fmtNum(M.netBbl, 1) + ' bbl';
+  document.getElementById('shipMarTotalMT').textContent = fmtNum(M.netMT, 3) + ' MT';
 
   scheduleShipSave();
 }
