@@ -308,6 +308,10 @@ body.light-mode .ship-results{background:rgba(7,94,84,.04);border-color:rgba(7,9
 .ship-gauge-box.start .ship-gauge-lbl{color:var(--green);}
 .ship-gauge-box.end .ship-gauge-lbl{color:var(--red);}
 .ship-out .val{font-size:11px;color:var(--muted);}
+.ship-lab{padding:10px 14px;background:rgba(245,158,11,.05);border-bottom:1px solid var(--border);}
+body.light-mode .ship-lab{background:rgba(146,64,14,.05);}
+.ship-lab-title{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--accent2);font-family:'JetBrains Mono',monospace;margin-bottom:8px;font-weight:700;}
+.ship-lab .ship-field .val{color:var(--accent2);font-weight:700;}
 </style>
 </head>
 <body>
@@ -414,8 +418,8 @@ body.light-mode .ship-results{background:rgba(7,94,84,.04);border-color:rgba(7,9
       <div class="field"><span class="f-label">Avg Marine (hourly)</span><span class="f-val" id="fAvgMarine">0<span class="u">m³/hr</span></span></div>
       <div class="field"><span class="f-label">Total Land</span><span class="f-val" id="fLandRaw">0<span class="u">m³/d</span></span></div>
       <div class="field"><span class="f-label">Total Marine</span><span class="f-val" id="fMarineRaw">0<span class="u">m³/d</span></span></div>
-      <div class="field"><span class="f-label">Net Land (− Zeitco)</span><span class="f-val" id="fLandNet">0<span class="u">m³/d</span></span></div>
-      <div class="field"><span class="f-label">Net Marine (− Shedwan &amp; Condensate)</span><span class="f-val" id="fMarineNet">0<span class="u">m³/d</span></span></div>
+      <div class="field"><span class="f-label">Net Land (− Zeitco − Drain)</span><span class="f-val" id="fLandNet">0<span class="u">m³/d</span></span></div>
+      <div class="field"><span class="f-label">Net Marine (− Shedwan &amp; Cond. − Drain)</span><span class="f-val" id="fMarineNet">0<span class="u">m³/d</span></span></div>
     </div>
 
     <!-- Daily inputs: Zeitco / Shedwan / Condensate -->
@@ -478,6 +482,23 @@ body.light-mode .ship-results{background:rgba(7,94,84,.04);border-color:rgba(7,9
         <span>⛽ Land — Tanks</span>
         <button class="ship-add-btn" onclick="addShipRow('land')">+ Add Tank</button>
       </div>
+      <div class="ship-lab">
+        <div class="ship-lab-title">🔬 Land Laboratory Data</div>
+        <div class="ship-grid">
+          <div class="ship-field">
+            <label>Density @15°C</label>
+            <input type="text" inputmode="decimal" lang="en" id="shipLandDensity" placeholder="0.9243" oninput="sanitizeNumInput(this); computeShipping()">
+          </div>
+          <div class="ship-field">
+            <label>W/C %</label>
+            <input type="text" inputmode="decimal" lang="en" id="shipLandWC" placeholder="0.20" oninput="sanitizeNumInput(this); computeShipping()">
+          </div>
+          <div class="ship-field">
+            <label>API (calc)</label>
+            <div class="val" id="shipLandAPI">—</div>
+          </div>
+        </div>
+      </div>
       <div id="shipLandRows"></div>
       <div class="ship-subtotal" id="shipLandSubtotal">
         <span>Land Net Oil:</span>
@@ -495,6 +516,23 @@ body.light-mode .ship-results{background:rgba(7,94,84,.04);border-color:rgba(7,9
         <span>🌊 Marine — Tanks</span>
         <button class="ship-add-btn" onclick="addShipRow('marine')">+ Add Tank</button>
       </div>
+      <div class="ship-lab">
+        <div class="ship-lab-title">🔬 Marine Laboratory Data</div>
+        <div class="ship-grid">
+          <div class="ship-field">
+            <label>Density @15°C</label>
+            <input type="text" inputmode="decimal" lang="en" id="shipMarineDensity" placeholder="0.8850" oninput="sanitizeNumInput(this); computeShipping()">
+          </div>
+          <div class="ship-field">
+            <label>W/C %</label>
+            <input type="text" inputmode="decimal" lang="en" id="shipMarineWC" placeholder="0.05" oninput="sanitizeNumInput(this); computeShipping()">
+          </div>
+          <div class="ship-field">
+            <label>API (calc)</label>
+            <div class="val" id="shipMarineAPI">—</div>
+          </div>
+        </div>
+      </div>
       <div id="shipMarineRows"></div>
       <div class="ship-subtotal" id="shipMarineSubtotal">
         <span>Marine Net Oil:</span>
@@ -503,23 +541,6 @@ body.light-mode .ship-results{background:rgba(7,94,84,.04);border-color:rgba(7,9
         <b id="shipMarineBbl">0 bbl</b>
         <span class="sep">·</span>
         <b id="shipMarineMT">0 MT</b>
-      </div>
-    </div>
-
-    <!-- Shipping lab inputs (shared density/temp/API) -->
-    <div class="section">
-      <div class="sec-title">🔬 Laboratory Data</div>
-      <div class="daily-grid" style="grid-template-columns:1fr 1fr;">
-        <div class="daily-field">
-          <label>Density @ 15°C</label>
-          <input type="text" inputmode="decimal" lang="en" id="shipDensity" placeholder="0.9225" oninput="sanitizeNumInput(this); computeShipping()">
-          <div class="unit">g/cm³</div>
-        </div>
-        <div class="daily-field">
-          <label>W/C %</label>
-          <input type="text" inputmode="decimal" lang="en" id="shipWC" placeholder="0.1" oninput="sanitizeNumInput(this); computeShipping()">
-          <div class="unit">%</div>
-        </div>
       </div>
     </div>
 
@@ -812,11 +833,14 @@ function compute(state){
 
   const drain = computeDrain(state.drain);
 
-  // Drain comes off both totals (per your call), split by stream.
-  const landAfterDrain_m3   = landRaw_m3 - drain.landDrain_m3;
-  const marineAfterDrain_m3 = marineRaw_m3 - drain.marineDrain_m3;
-
-  const receivedFeiran_m3  = landAfterDrain_m3 + marineAfterDrain_m3;
+  // GROSS "Received at Feiran" = what physically arrived at the terminal,
+  // BEFORE any deduction. Drain is NOT taken out here.
+  //
+  // (Earlier this subtracted drain from both gross and net. That was wrong:
+  // deducting it from both meant it cancelled out, so the visible Gross→Net
+  // difference only ever contained Zeitco/Shedwan/Condensate and the drain
+  // never showed up as a deduction at all.)
+  const receivedFeiran_m3  = landRaw_m3 + marineRaw_m3;
   const receivedFeiran_bbl = receivedFeiran_m3 * CONV;
 
   // Zeitco / Shedwan / Condensate are entered in BBL — convert to m³ before
@@ -828,8 +852,12 @@ function compute(state){
   const zeitco_m3   = zeitco_bbl / CONV;
   const shedCond_m3 = shedCond_bbl / CONV;
 
-  const netLand_m3   = landAfterDrain_m3 - zeitco_m3;
-  const netMarine_m3 = marineAfterDrain_m3 - shedCond_m3;
+  // NET = Gross − imported streams − drain, split by stream so each
+  // deduction comes off the side it belongs to. The full chain is now
+  // visible and auditable:
+  //   Net = Received at Feiran − Zeitco − (Shedwan + Condensate) − Drain
+  const netLand_m3   = landRaw_m3   - zeitco_m3   - drain.landDrain_m3;
+  const netMarine_m3 = marineRaw_m3 - shedCond_m3 - drain.marineDrain_m3;
   const netLand_bbl   = netLand_m3 * CONV;
   const netMarine_bbl = netMarine_m3 * CONV;
 
@@ -1029,8 +1057,9 @@ function addShipRow(stream){
         '<span class="ship-row-title">' + (stream === 'land' ? '⛽' : '🌊') + ' Tank Loading</span>' +
         '<button class="ship-row-del" onclick="removeShipRow(\'' + id + '\')" title="Remove">✕</button>' +
       '</div>' +
-      '<div class="ship-grid" style="grid-template-columns:1fr;">' +
+      '<div class="ship-grid" style="grid-template-columns:1fr 1fr;">' +
         '<div class="ship-field"><label>Tank</label><select data-role="tank" onchange="computeShipping()">' + optionsHtml + '</select></div>' +
+        '<div class="ship-field"><label>Density (optional)</label><input type="text" inputmode="decimal" lang="en" data-role="density" placeholder="use lab" oninput="sanitizeNumInput(this); computeShipping()"></div>' +
       '</div>' +
       '<div class="ship-gauge-pair">' +
         '<div class="ship-gauge-box start">' +
@@ -1068,7 +1097,7 @@ function addShipRow(stream){
       '</div>' +
     '</div>';
   container.insertAdjacentHTML('beforeend', html);
-  computeShipping();
+  if(!_shipLocalWrite) computeShipping();
 }
 
 function removeShipRow(id){
@@ -1077,20 +1106,40 @@ function removeShipRow(id){
   computeShipping();
 }
 
+// API gravity from density at 15°C (standard petroleum formula).
+// Shown for reference/cross-check against the lab sheet — the VCF math
+// itself uses density, not API.
+function densityToAPI(densGcm3){
+  if(!densGcm3 || densGcm3 <= 0) return null;
+  return (141.5 / densGcm3) - 131.5;
+}
+
 function computeShipping(){
   var CONV_BBL = 6.292316;
-  var labDens = parseFloat(toWesternDigits(document.getElementById('shipDensity').value));
-  var labWC = parseFloat(toWesternDigits(document.getElementById('shipWC').value));
-  var wcFraction = (!isNaN(labWC) && labWC >= 0) ? labWC / 100 : 0;
 
-  function processRows(containerId){
+  // Per-stream laboratory data — Land and Marine are different crudes with
+  // different densities and APIs, so they must never share one value.
+  var landDens = parseFloat(toWesternDigits(document.getElementById('shipLandDensity').value));
+  var landWC = parseFloat(toWesternDigits(document.getElementById('shipLandWC').value));
+  var marineDens = parseFloat(toWesternDigits(document.getElementById('shipMarineDensity').value));
+  var marineWC = parseFloat(toWesternDigits(document.getElementById('shipMarineWC').value));
+
+  // Live API display per stream
+  var landAPI = densityToAPI(landDens);
+  var marineAPI = densityToAPI(marineDens);
+  document.getElementById('shipLandAPI').textContent = landAPI !== null ? landAPI.toFixed(1) : '—';
+  document.getElementById('shipMarineAPI').textContent = marineAPI !== null ? marineAPI.toFixed(1) : '—';
+
+  function processRows(containerId, streamDens, streamWC){
     var container = document.getElementById(containerId);
     if(!container) return { totalQtyM3:0, totalNetM3:0, totalMT:0 };
     var rows = container.querySelectorAll('.ship-row');
     var totalQtyM3=0, totalNetM3=0, totalMT=0;
+    var wcFraction = (!isNaN(streamWC) && streamWC >= 0) ? streamWC / 100 : 0;
 
     rows.forEach(function(row){
       var tankSel = row.querySelector('[data-role=tank]');
+      var densIn = row.querySelector('[data-role=density]');
       var startGaugeIn = row.querySelector('[data-role=startGauge]');
       var startTempIn = row.querySelector('[data-role=startTemp]');
       var endGaugeIn = row.querySelector('[data-role=endGauge]');
@@ -1113,7 +1162,11 @@ function computeShipping(){
       var endGaugeM = parseFloat(toWesternDigits(endGaugeIn.value));
       var endTemp = parseFloat(toWesternDigits(endTempIn.value));
 
-      var densGcm3 = labDens; // density from lab data
+      // Per-tank density overrides the stream's lab density when provided —
+      // real shipment reports show density varying between tanks in the same
+      // parcel (e.g. 0.9255 on one tank, 0.9243 on the next).
+      var rowDens = parseFloat(toWesternDigits(densIn.value));
+      var densGcm3 = !isNaN(rowDens) ? rowDens : streamDens;
 
       // Gauge is entered in meters (e.g. 12.840) → convert to mm for calibration lookup
       var startMM = !isNaN(startGaugeM) ? Math.round(startGaugeM * 1000) : NaN;
@@ -1130,9 +1183,7 @@ function computeShipping(){
       var adjEnd = (volEnd !== null && vcfEnd !== null) ? volEnd * vcfEnd : null;
       var qtyM3 = (adjStart !== null && adjEnd !== null) ? adjStart - adjEnd : null;
 
-      // Net oil = qty loaded × (1 - W/C fraction)
       var netM3 = (qtyM3 !== null) ? qtyM3 * (1 - wcFraction) : null;
-      // Metric tons = net oil m³ × density at 15°C (kg/m³) / 1000
       var mt = (netM3 !== null && densKgm3) ? netM3 * densKgm3 / 1000 : null;
 
       startVolEl.textContent = volStart !== null ? fmtNum(volStart, 3) : '—';
@@ -1154,8 +1205,8 @@ function computeShipping(){
     return { totalQtyM3:totalQtyM3, totalNetM3:totalNetM3, totalMT:totalMT };
   }
 
-  var land = processRows('shipLandRows');
-  var marine = processRows('shipMarineRows');
+  var land = processRows('shipLandRows', landDens, landWC);
+  var marine = processRows('shipMarineRows', marineDens, marineWC);
   var totalNetM3 = land.totalNetM3 + marine.totalNetM3;
   var totalMT = land.totalMT + marine.totalMT;
 
@@ -1174,6 +1225,10 @@ function computeShipping(){
 
 // ── Shipping Firestore persistence ──
 var _shipSaveTimer = null;
+var _shipLocalWrite = false; // true while we're saving OUR OWN edit — prevents
+                             // the onSnapshot callback from tearing down and
+                             // rebuilding every row (which kills focus/keyboard)
+
 function scheduleShipSave(){
   if(_shipSaveTimer) clearTimeout(_shipSaveTimer);
   _shipSaveTimer = setTimeout(saveShippingToFirestore, 800);
@@ -1186,6 +1241,7 @@ function readShipRows(containerId){
   rows.forEach(function(row){
     result.push({
       tank: row.querySelector('[data-role=tank]').value,
+      density: row.querySelector('[data-role=density]').value || null,
       startGauge: row.querySelector('[data-role=startGauge]').value || null,
       startTemp: row.querySelector('[data-role=startTemp]').value || null,
       endGauge: row.querySelector('[data-role=endGauge]').value || null,
@@ -1196,15 +1252,21 @@ function readShipRows(containerId){
 }
 function saveShippingToFirestore(){
   if(!currentUser) return;
+  _shipLocalWrite = true;
   var data = {
     landRows: readShipRows('shipLandRows'),
     marineRows: readShipRows('shipMarineRows'),
-    labDensity: document.getElementById('shipDensity').value || null,
-    labWC: document.getElementById('shipWC').value || null,
+    landDensity: document.getElementById('shipLandDensity').value || null,
+    landWC: document.getElementById('shipLandWC').value || null,
+    marineDensity: document.getElementById('shipMarineDensity').value || null,
+    marineWC: document.getElementById('shipMarineWC').value || null,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     updatedBy: currentUser ? currentUser.email : null
   };
-  db.collection('accountingShipping').doc(currentDate).set(data).catch(function(err){
+  db.collection('accountingShipping').doc(currentDate).set(data).then(function(){
+    setTimeout(function(){ _shipLocalWrite = false; }, 500);
+  }).catch(function(err){
+    _shipLocalWrite = false;
     console.error('[Firestore] shipping save failed', err);
   });
 }
@@ -1219,6 +1281,7 @@ function restoreShipRows(stream, savedRows){
     if(!row) return;
     var tankSel = row.querySelector('[data-role=tank]');
     if(sr.tank) tankSel.value = sr.tank;
+    if(sr.density) row.querySelector('[data-role=density]').value = sr.density;
     if(sr.startGauge) row.querySelector('[data-role=startGauge]').value = sr.startGauge;
     if(sr.startTemp) row.querySelector('[data-role=startTemp]').value = sr.startTemp;
     if(sr.endGauge) row.querySelector('[data-role=endGauge]').value = sr.endGauge;
@@ -1228,19 +1291,26 @@ function restoreShipRows(stream, savedRows){
 var _shipUnsub = null;
 function startShipListener(dateStr){
   if(_shipUnsub) _shipUnsub();
+  _shipLocalWrite = false;
   _shipUnsub = db.collection('accountingShipping').doc(dateStr).onSnapshot(function(doc){
+    if(_shipLocalWrite) return;
+
     if(doc.exists){
       var d = doc.data();
       restoreShipRows('land', d.landRows);
       restoreShipRows('marine', d.marineRows);
-      if(d.labDensity) document.getElementById('shipDensity').value = d.labDensity;
-      if(d.labWC) document.getElementById('shipWC').value = d.labWC;
+      document.getElementById('shipLandDensity').value = d.landDensity || '';
+      document.getElementById('shipLandWC').value = d.landWC || '';
+      document.getElementById('shipMarineDensity').value = d.marineDensity || '';
+      document.getElementById('shipMarineWC').value = d.marineWC || '';
       computeShipping();
     } else {
       document.getElementById('shipLandRows').innerHTML = '';
       document.getElementById('shipMarineRows').innerHTML = '';
-      document.getElementById('shipDensity').value = '';
-      document.getElementById('shipWC').value = '';
+      document.getElementById('shipLandDensity').value = '';
+      document.getElementById('shipLandWC').value = '';
+      document.getElementById('shipMarineDensity').value = '';
+      document.getElementById('shipMarineWC').value = '';
       computeShipping();
     }
   }, function(err){
@@ -1249,6 +1319,7 @@ function startShipListener(dateStr){
 }
 function stopShipListener(){
   if(_shipUnsub){ _shipUnsub(); _shipUnsub = null; }
+  _shipLocalWrite = false;
 }
 
 // ══════════════════════════════════════════
@@ -1309,8 +1380,8 @@ function buildReportBodyHtml(){
       '<tr><th>Avg Marine (hourly)</th><td colspan="2">' + fmtNum(r.avgMarine,2) + ' m³/hr</td></tr>' +
       '<tr><th>Total Land</th><td colspan="2">' + fmtNum(r.landRaw_m3,1) + ' m³/d</td></tr>' +
       '<tr><th>Total Marine</th><td colspan="2">' + fmtNum(r.marineRaw_m3,1) + ' m³/d</td></tr>' +
-      '<tr><th>Net Land (− Zeitco)</th><td colspan="2">' + fmtNum(r.netLand_m3,1) + ' m³/d</td></tr>' +
-      '<tr><th>Net Marine (− Shedwan &amp; Condensate)</th><td colspan="2">' + fmtNum(r.netMarine_m3,1) + ' m³/d</td></tr>' +
+      '<tr><th>Net Land (− Zeitco − Drain)</th><td colspan="2">' + fmtNum(r.netLand_m3,1) + ' m³/d</td></tr>' +
+      '<tr><th>Net Marine (− Shedwan &amp; Cond. − Drain)</th><td colspan="2">' + fmtNum(r.netMarine_m3,1) + ' m³/d</td></tr>' +
     '</table>' +
 
     '<table class="pr-table"><caption>🧮 Full Breakdown</caption>' +
@@ -1459,8 +1530,8 @@ function generateReportPdf(){
   dataRow('Avg Marine (hourly)', fmtNum(r.avgMarine,2)+' m3/hr');
   dataRow('Total Land', fmtNum(r.landRaw_m3,1)+' m3/d');
   dataRow('Total Marine', fmtNum(r.marineRaw_m3,1)+' m3/d');
-  dataRow('Net Land (- Zeitco)', fmtNum(r.netLand_m3,1)+' m3/d');
-  dataRow('Net Marine (- Shedwan & Condensate)', fmtNum(r.netMarine_m3,1)+' m3/d');
+  dataRow('Net Land (- Zeitco - Drain)', fmtNum(r.netLand_m3,1)+' m3/d');
+  dataRow('Net Marine (- Shedwan & Cond. - Drain)', fmtNum(r.netMarine_m3,1)+' m3/d');
   y += 4;
 
   sectionTitle('FULL BREAKDOWN');
