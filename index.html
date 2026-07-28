@@ -312,6 +312,7 @@ body.light-mode .ship-results{background:rgba(7,94,84,.04);border-color:rgba(7,9
 body.light-mode .ship-lab{background:rgba(146,64,14,.05);}
 .ship-lab-title{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--accent2);font-family:'JetBrains Mono',monospace;margin-bottom:8px;font-weight:700;}
 .ship-lab .ship-field .val{color:var(--accent2);font-weight:700;}
+.fixed-val{width:100%;background:rgba(128,128,128,.08);border:1px dashed var(--border);border-radius:8px;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:17px;padding:10px 4px;text-align:center;}
 .z-samples{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 14px;}
 .z-sample{text-align:center;}
 .z-sample label{display:block;font-size:9px;color:var(--muted);letter-spacing:.4px;margin-bottom:4px;font-family:'JetBrains Mono',monospace;}
@@ -600,8 +601,8 @@ body.light-mode .ship-lab{background:rgba(146,64,14,.05);}
         </div>
         <div class="daily-field">
           <label>Correction Factor</label>
-          <input type="text" inputmode="decimal" lang="en" id="zCorrFactor" placeholder="0.9837" oninput="sanitizeNumInput(this); computeZeitco()">
-          <div class="unit">meter factor</div>
+          <div class="fixed-val" id="zCorrFactorDisp">0.9837</div>
+          <div class="unit">fixed meter factor</div>
         </div>
       </div>
     </div>
@@ -1452,8 +1453,16 @@ function stopShipListener(){
 //  avg 34.516667% → net 5106, water 2691. All exact.
 // ══════════════════════════════════════════
 var ZEIT_SAMPLE_COUNT = 6;
+// Fixed meter correction factor for the Zeitco Coriolis meter (sheet cell E17).
+// Not user-editable by design. If the meter is ever re-proved and this value
+// changes, update it HERE — it is the single source of truth for the factor.
+var ZEIT_CORR_FACTOR = 0.9837;
 
 function buildZeitcoSamples(){
+  // Keep the on-screen factor in lockstep with the constant used in the math
+  var dispEl = document.getElementById('zCorrFactorDisp');
+  if(dispEl) dispEl.textContent = ZEIT_CORR_FACTOR.toFixed(4);
+
   var box = document.getElementById('zSamples');
   if(!box) return;
   var html = '';
@@ -1483,7 +1492,7 @@ function readZeitcoSamples(){
 
 function computeZeitco(){
   var scanner = numOrNull(document.getElementById('zScanner').value);
-  var corrFactor = numOrNull(document.getElementById('zCorrFactor').value);
+  var corrFactor = ZEIT_CORR_FACTOR;
   var samples = readZeitcoSamples();
 
   var avgWC = samples.length
@@ -1556,7 +1565,6 @@ function saveZeitcoToFirestore(){
   }
   db.collection('accountingZeitco').doc(currentDate).set({
     scanner: document.getElementById('zScanner').value || null,
-    corrFactor: document.getElementById('zCorrFactor').value || null,
     samples: samples,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     updatedBy: currentUser ? currentUser.email : null
@@ -1575,7 +1583,6 @@ function startZeitListener(dateStr){
     if(_zeitLocalWrite) return; // skip echo of our own write (keeps focus)
     var d = doc.exists ? doc.data() : {};
     document.getElementById('zScanner').value = d.scanner || '';
-    document.getElementById('zCorrFactor').value = d.corrFactor || '';
     for(var i = 1; i <= ZEIT_SAMPLE_COUNT; i++){
       var el = document.getElementById('zS' + i);
       if(el) el.value = (d.samples && d.samples['s' + i]) ? d.samples['s' + i] : '';
