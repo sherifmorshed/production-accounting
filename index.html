@@ -267,6 +267,8 @@ table.sheet-table input:focus{border-color:var(--accent);}
 .ship-hint{color:var(--accent);}
 .inv-auto{font-size:9.5px;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.3px;}
 .inv-col.yest.linked{border-left-color:var(--accent);}
+.inv-col.yest.manual{border-left-color:var(--accent2);}
+.inv-col.yest.manual .inv-col-lbl::after{content:' · manual';color:var(--accent2);}
 .inv-col.yest.linked .inv-col-lbl::after{content:' · from ' attr(data-prev);color:var(--accent);}
 .cal-warn{font-size:11.5px;color:var(--red);background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.35);border-radius:8px;padding:9px 12px;margin-bottom:12px;line-height:1.5;}
 .inv-linked-note{font-size:10.5px;color:var(--accent);background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.25);border-radius:8px;padding:7px 10px;margin:0 14px 10px;font-family:'JetBrains Mono',monospace;}
@@ -2032,8 +2034,8 @@ function buildInventoryRows(){
           '<div class="inv-col yest">' +
             '<div class="inv-col-lbl">YESTERDAY</div>' +
             '<div class="ship-grid-2">' +
-              '<div class="ship-field"><label>Level m</label><input type="text" inputmode="decimal" lang="en" id="invY_g_' + id + '" placeholder="0.000" oninput="sanitizeNumInput(this); computeInventory()"></div>' +
-              '<div class="ship-field"><label>Temp °C</label><input type="text" inputmode="decimal" lang="en" id="invY_t_' + id + '" placeholder="0" oninput="sanitizeNumInput(this); computeInventory()"></div>' +
+              '<div class="ship-field"><label>Level m</label><input type="text" inputmode="decimal" lang="en" id="invY_g_' + id + '" placeholder="0.000" oninput="sanitizeNumInput(this); onYesterdayEdit(this)"></div>' +
+              '<div class="ship-field"><label>Temp °C</label><input type="text" inputmode="decimal" lang="en" id="invY_t_' + id + '" placeholder="0" oninput="sanitizeNumInput(this); onYesterdayEdit(this)"></div>' +
             '</div>' +
             '<div class="inv-out"><span id="invY_v_' + id + '">—</span> m³ <span class="vcf" id="invY_f_' + id + '"></span></div>' +
           '</div>' +
@@ -2072,6 +2074,17 @@ function invTankVolume(tankKey, levelM, tempC, densGcm3){
   if(isNaN(tempC) || tempC === null) return { raw: raw, vol: vol, vcf: null, corrected: null };
   var vcf = astm54aVCF(densGcm3 * 1000, tempC);
   return { raw: raw, vol: vol, vcf: vcf, corrected: vol * vcf };
+}
+
+// A hand-typed yesterday reading is authoritative for this date. Flag the
+// column as manual so the previous-day seed leaves it alone, and save
+// promptly so an in-flight snapshot can't echo back a doc that predates it.
+function onYesterdayEdit(el){
+  var col = el.closest ? el.closest('.inv-col') : null;
+  if(col){ col.classList.add('manual'); col.classList.remove('linked'); }
+  computeInventory();
+  if(_invSaveTimer) clearTimeout(_invSaveTimer);
+  _invSaveTimer = setTimeout(saveInventoryToFirestore, 150);
 }
 
 function computeInventory(){
@@ -2253,25 +2266,45 @@ function loadPreviousDayInventory(dateStr){
   var prev = _prevDateStr(dateStr);
   var noteEl = document.getElementById('aLinkNote');
   if(!prev) return;
+  // Never touch the fields while the user is typing in them.
+  if(_invHasFocus()) return;
+
   db.collection('accountingInventory').doc(prev).get().then(function(doc){
-    if(!doc.exists){
-      if(noteEl) noteEl.textContent = '\ud83d\udd17 No saved record for ' + prev + ' \u2014 enter yesterday manually this once.';
-      _setYesterdayLinked(false);
-      return;
-    }
-    var tanks = (doc.data() && doc.data().tanks) || {};
+    var tanks = (doc.exists && doc.data() && doc.data().tanks) || {};
+    var filled = 0, keptManual = 0;
+
     TANKS.forEach(function(t){
       if(t.noCal) return;
       var id = tankIdSafe(t.key);
       var v = tanks[t.key] || {};
       var gEl = document.getElementById('invY_g_' + id);
       var tEl = document.getElementById('invY_t_' + id);
-      if(gEl) gEl.value = v.tG || '';
-      if(tEl) tEl.value = v.tT || '';
+      if(!gEl || !tEl) return;
+
+      // SEED, don't overwrite. A yesterday value already on screen — typed by
+      // hand or saved earlier — always wins. The previous day only fills gaps,
+      // and an empty previous-day reading never blanks anything out.
+      var hasManual = (gEl.value !== '' || tEl.value !== '');
+      if(hasManual){ keptManual++; return; }
+      if(v.tG){ gEl.value = v.tG; filled++; }
+      if(v.tT){ tEl.value = v.tT; }
     });
-    if(noteEl) noteEl.textContent = '\ud83d\udd17 Yesterday auto-filled from ' + prev + ' (that day\u2019s Today readings).';
-    _setYesterdayLinked(true);
-    computeInventory();
+
+    if(noteEl){
+      if(filled > 0 && keptManual === 0){
+        noteEl.textContent = '🔗 Yesterday auto-filled from ' + prev + ' (that day’s Today readings).';
+      } else if(filled > 0){
+        noteEl.textContent = '🔗 ' + filled + ' tank(s) auto-filled from ' + prev +
+                             '; your manually entered values were kept.';
+      } else if(keptManual > 0){
+        noteEl.textContent = '✏️ Yesterday entered manually. It will link automatically ' +
+                             'once ' + prev + ' has saved readings.';
+      } else {
+        noteEl.textContent = '🔗 No readings for ' + prev + ' — enter yesterday manually this once.';
+      }
+    }
+    _setYesterdayLinked(filled > 0);
+    if(filled > 0) computeInventory();
   }).catch(function(err){ console.error('[Firestore] prev-day load failed', err); });
 }
 
@@ -2325,10 +2358,20 @@ function _invApply(d){
     if(t.noCal) return;
     var id = tankIdSafe(t.key);
     var v = tanks[t.key] || {};
-    document.getElementById('invY_g_' + id).value = v.yG || '';
-    document.getElementById('invY_t_' + id).value = v.yT || '';
+    var yg = document.getElementById('invY_g_' + id);
+    var yt = document.getElementById('invY_t_' + id);
+    // Today's readings always mirror the stored record.
     document.getElementById('invT_g_' + id).value = v.tG || '';
     document.getElementById('invT_t_' + id).value = v.tT || '';
+    // Yesterday is different: a value on screen may be a manual entry that
+    // hasn't been saved yet (the save is debounced ~800 ms). Applying an
+    // older snapshot here would blank it, and the previous-day seed would
+    // then treat the field as empty and overwrite it. So only clear a
+    // yesterday field when the record actually carries a value for it.
+    if(v.yG) yg.value = v.yG;
+    else if(!yg.value) yg.value = '';
+    if(v.yT) yt.value = v.yT;
+    else if(!yt.value) yt.value = '';
   });
   var mv = (d && d.movements) || {};
   INV_MOV_IDS.forEach(function(id){
@@ -2336,8 +2379,17 @@ function _invApply(d){
     if(el) el.value = mv[id] || '';
   });
   computeInventory();
-  // The previous day's TODAY always wins for the yesterday column.
-  loadPreviousDayInventory(currentDate);
+  // Seed the yesterday column from the previous day only if this day's own
+  // record has no yesterday readings yet. A saved (or manually typed)
+  // yesterday is never replaced.
+  var hasOwnYesterday = TANKS.some(function(t){
+    if(t.noCal) return false;
+    var id = tankIdSafe(t.key);
+    var g = document.getElementById('invY_g_' + id);
+    var tt = document.getElementById('invY_t_' + id);
+    return (g && g.value !== '') || (tt && tt.value !== '');
+  });
+  if(!hasOwnYesterday) loadPreviousDayInventory(currentDate);
 }
 var _invUnsub = null;
 function startInvListener(dateStr){
