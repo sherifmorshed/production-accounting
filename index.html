@@ -347,6 +347,7 @@ table.hr-tbl input,.ship-field input,.daily-field input,.z-sample input,
 .qty-block{padding:10px 12px;border-bottom:1px solid rgba(128,128,128,.12);}
 .qty-block:last-child{border-bottom:none;}
 .qty-lbl{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);margin-bottom:7px;}
+.qty-lbl .ico{width:13px;height:13px;flex-basis:13px;margin-right:5px;vertical-align:-2px;opacity:.8;}
 .qty-lbl .cnt{font-style:normal;letter-spacing:0;text-transform:none;opacity:.75;margin-left:5px;}
 .qty-vals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
 .qty-vals.one{grid-template-columns:1fr;}
@@ -376,6 +377,7 @@ body.light-mode .gauge-fill{background:linear-gradient(180deg,var(--accent),rgba
 /* ══ ICON SYSTEM ══ */
 .ico{width:15px;height:15px;flex:0 0 15px;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;fill:none;vertical-align:-2.5px;margin-right:7px;}
 .sec-title .ico{opacity:.85;}
+.rc-sub-note{font-style:normal;opacity:.65;letter-spacing:.4px;margin-left:6px;text-transform:none;}
 .rc-lbl .ico{width:14px;height:14px;flex-basis:14px;margin-right:6px;vertical-align:-2px;}
 .print-btn .ico{margin-right:6px;vertical-align:-3px;}
 .tab-ico{width:19px;height:19px;flex-basis:19px;margin:0 0 3px;display:block;stroke-width:1.5;}
@@ -426,6 +428,14 @@ body.light-mode .daily-field input:focus,body.light-mode .z-sample input:focus{b
 
 /* ══ SHEETS & ROWS ══ */
 .qty-sheet{border-radius:12px;}
+.cmp-split{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 12px 12px;}
+.cmp-split .qty-sheet{margin:0;}
+.cmp-hd{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.9px;text-transform:uppercase;
+  color:var(--muted);padding:0 2px 6px;line-height:1.35;min-height:26px;}
+.cmp-split .qty-vals{grid-template-columns:1fr;gap:3px;}
+.cmp-split .qty-vals b{font-size:13.5px;}
+.cmp-split .qty-block{padding:9px 10px;}
+.cmp-split .qty-block.net .qty-vals b{font-size:14.5px;}
 .ship-gauge-box{border-radius:10px;}
 .inv-col{border-radius:10px;}
 .qty-block.net{box-shadow:inset 0 1px 0 rgba(255,255,255,.05);}
@@ -603,16 +613,69 @@ body.light-mode .daily-field input:focus,body.light-mode .z-sample input:focus{b
 
     <div class="result-cards">
       <div class="result-card net">
-        <div class="rc-lbl"><svg class="ico"><use href="#i-farm"/></svg>Today in Fieran</div>
-        <div class="rc-val" id="aInvChange">0</div>
-        <div class="rc-sub">m³ in terminal</div>
-        <div class="rc-bbl" id="aInvChangeBbl">0 bbl</div>
-      </div>
-      <div class="result-card received">
-        <div class="rc-lbl"><svg class="ico"><use href="#i-derrick"/></svg>Production (from tank measurements)</div>
+        <div class="rc-lbl"><svg class="ico"><use href="#i-derrick"/></svg>Production from Tanks <i class="rc-sub-note">today − yesterday</i></div>
         <div class="rc-val" id="aVariance">—</div>
         <div class="rc-sub">m³</div>
         <div class="rc-bbl" id="aVarianceNote">enter tank levels</div>
+      </div>
+    </div>
+
+    <!-- Comparison, straight under the headline -->
+    <div class="section">
+      <div class="sec-title"><svg class="ico"><use href="#i-scale"/></svg>vs Daily Production</div>
+      <div class="qty-sheet">
+        <div class="qty-block">
+          <div class="qty-lbl">Production from Tanks <i class="cnt">today − yesterday</i></div>
+          <div class="qty-vals"><div><b id="aCmpChangeV">0</b><i>m³</i></div><div><b id="aCmpChangeB">0</b><i>bbl</i></div></div>
+        </div>
+      </div>
+
+      <div class="cmp-split">
+        <div class="cmp-col">
+          <div class="cmp-hd">A · WITH Zeitco / Shedwan / Condensate</div>
+          <div class="qty-sheet">
+            <div class="qty-block">
+              <div class="qty-lbl">Daily Production <i class="cnt">gross received</i></div>
+              <div class="qty-vals"><div><b id="aCmpGrossV">0</b><i>m³</i></div><div><b id="aCmpGrossB">0</b><i>bbl</i></div></div>
+            </div>
+            <div class="qty-block net">
+              <div class="qty-lbl">Difference vs tanks</div>
+              <div class="qty-vals"><div><b id="aCmpGrossVarV">0</b><i>m³</i></div><div><b id="aCmpGrossVarB">0</b><i>bbl</i></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="cmp-col">
+          <div class="cmp-hd">B · WITHOUT Zeitco / Shedwan / Condensate</div>
+          <div class="qty-sheet">
+            <div class="qty-block">
+              <div class="qty-lbl">Daily Production <i class="cnt">net own production</i></div>
+              <div class="qty-vals"><div><b id="aCmpDailyV">0</b><i>m³</i></div><div><b id="aCmpDailyB">0</b><i>bbl</i></div></div>
+            </div>
+            <div class="qty-block net">
+              <div class="qty-lbl">Difference vs tanks</div>
+              <div class="qty-vals"><div><b id="aCmpVarV">0</b><i>m³</i></div><div><b id="aCmpVarB">0</b><i>bbl</i></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Today's production split by stream -->
+    <div class="section">
+      <div class="sec-title"><svg class="ico"><use href="#i-flow"/></svg>Today&rsquo;s Production by Stream</div>
+      <div class="qty-sheet">
+        <div class="qty-block">
+          <div class="qty-lbl"><svg class="ico"><use href="#i-tank"/></svg>Land <i class="cnt">today &minus; yesterday</i></div>
+          <div class="qty-vals"><div><b id="aStreamLandV">0</b><i>m³</i></div><div><b id="aStreamLandB">0</b><i>bbl</i></div></div>
+        </div>
+        <div class="qty-block">
+          <div class="qty-lbl"><svg class="ico"><use href="#i-wave"/></svg>Marine <i class="cnt">today &minus; yesterday</i></div>
+          <div class="qty-vals"><div><b id="aStreamMarineV">0</b><i>m³</i></div><div><b id="aStreamMarineB">0</b><i>bbl</i></div></div>
+        </div>
+        <div class="qty-block net">
+          <div class="qty-lbl">Total</div>
+          <div class="qty-vals"><div><b id="aStreamTotalV">0</b><i>m³</i></div><div><b id="aStreamTotalB">0</b><i>bbl</i></div></div>
+        </div>
       </div>
     </div>
 
@@ -729,12 +792,20 @@ body.light-mode .daily-field input:focus,body.light-mode .z-sample input:focus{b
       <div class="field"><span class="f-label">Production in barrels</span><span class="f-val" id="aProdBbl">0<span class="u">bbl</span></span></div>
     </div>
 
-    <!-- Cross-check against the Daily Production tab -->
+
+    <!-- Terminal stock — reference, not the headline -->
     <div class="section">
-      <div class="sec-title"><svg class="ico"><use href="#i-scale"/></svg>Inventory Change vs Daily Production</div>
-      <div class="field"><span class="f-label">Inventory change (today − yesterday)</span><span class="f-val" id="aCmpChange">0<span class="u">m³</span></span></div>
-      <div class="field"><span class="f-label">Daily Production (net, from tab 1)</span><span class="f-val" id="aCmpDaily">0<span class="u">m³</span></span></div>
-      <div class="field" style="border-top:2px solid var(--accent2);"><span class="f-label"><b>Difference</b></span><span class="f-val" id="aCmpVar" style="color:var(--accent2);font-size:16px;">0<span class="u">m³</span></span></div>
+      <div class="sec-title"><svg class="ico"><use href="#i-farm"/></svg>Terminal Inventory</div>
+      <div class="qty-sheet">
+        <div class="qty-block">
+          <div class="qty-lbl">Yesterday — all tanks</div>
+          <div class="qty-vals"><div><b id="aGrandYestV">0</b><i>m³</i></div><div><b id="aGrandYestB">0</b><i>bbl</i></div></div>
+        </div>
+        <div class="qty-block net">
+          <div class="qty-lbl">Today in Fieran — all tanks</div>
+          <div class="qty-vals"><div><b id="aGrandTodayV">0</b><i>m³</i></div><div><b id="aGrandTodayB">0</b><i>bbl</i></div></div>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -2153,8 +2224,10 @@ function computeInventory(){
   var grandChange = grandT - grandY;
   var grandChangeBbl = grandChange * CONV;
 
-  document.getElementById('aInvChange').textContent = fmtNum(grandT, 3);
-  document.getElementById('aInvChangeBbl').textContent = fmtNum(grandT * CONV, 1) + ' bbl';
+  // Terminal stock (reference section at the foot of the tab)
+  var setTxt = function(id, v, d){ var e = document.getElementById(id); if(e) e.textContent = fmtNum(v, d); };
+  setTxt('aGrandYestV', grandY, 3);   setTxt('aGrandYestB', grandY * CONV, 1);
+  setTxt('aGrandTodayV', grandT, 3);  setTxt('aGrandTodayB', grandT * CONV, 1);
 
   setInvField('aGrandYest', grandY, 3);
   setInvField('aGrandToday', grandT, 3);
@@ -2185,15 +2258,34 @@ function computeInventory(){
   setInvField('aProdM3', prodM3, 3);
   setInvField('aProdBbl', prodBblCalc, 1);
 
-  // Cross-check: tank-derived production vs the Daily Production tab's net
-  var dailyBbl = 0;
-  try { dailyBbl = compute(readState()).totalNet_bbl || 0; } catch(_){}
+  // Two comparisons against the Daily Production tab:
+  //   A = gross received at Feiran  (WITH Zeitco / Shedwan / Condensate)
+  //   B = net own production        (WITHOUT them)
+  // Tank movement tracks A on a day with imported receipts and B without —
+  // showing both makes it obvious which case the day actually is.
+  var dailyBbl = 0, dailyGrossBbl = 0;
+  try {
+    var _p = compute(readState());
+    dailyBbl = _p.totalNet_bbl || 0;
+    dailyGrossBbl = _p.receivedFeiran_bbl || 0;
+  } catch(_){}
   var dailyM3 = dailyBbl / CONV;
+  var dailyGrossM3 = dailyGrossBbl / CONV;
   var variance = grandChange - dailyM3;
-  setInvField('aCmpChange', grandChange, 3);
-  setInvField('aCmpDaily', dailyM3, 3);
-  setInvField('aCmpVar', variance, 3);
+  var varianceGross = grandChange - dailyGrossM3;
+  // Today's production split by stream (each stream's own today − yesterday)
+  setTxt('aStreamLandV', landChange, 3);        setTxt('aStreamLandB', landChange * CONV, 1);
+  setTxt('aStreamMarineV', marineChange, 3);    setTxt('aStreamMarineB', marineChange * CONV, 1);
+  setTxt('aStreamTotalV', landChange + marineChange, 3);
+  setTxt('aStreamTotalB', (landChange + marineChange) * CONV, 1);
 
+  setTxt('aCmpChangeV', grandChange, 3);  setTxt('aCmpChangeB', grandChange * CONV, 1);
+  setTxt('aCmpDailyV', dailyM3, 3);       setTxt('aCmpDailyB', dailyBbl, 1);
+  setTxt('aCmpVarV', variance, 3);        setTxt('aCmpVarB', variance * CONV, 1);
+  setTxt('aCmpGrossV', dailyGrossM3, 3);  setTxt('aCmpGrossB', dailyGrossBbl, 1);
+  setTxt('aCmpGrossVarV', varianceGross, 3); setTxt('aCmpGrossVarB', varianceGross * CONV, 1);
+
+  // Headline: production straight from the tank levels (today − yesterday).
   var vEl = document.getElementById('aVariance');
   var vNote = document.getElementById('aVarianceNote');
   var anyTankData = (grandT !== 0 || grandY !== 0);
@@ -2201,8 +2293,8 @@ function computeInventory(){
     vEl.textContent = '—';
     vNote.textContent = 'enter tank levels';
   } else {
-    vEl.textContent = fmtNum(prodM3, 1);
-    vNote.textContent = fmtNum(prodBblCalc, 0) + ' bbl';
+    vEl.textContent = fmtNum(grandChange, 1);
+    vNote.textContent = fmtNum(grandChange * CONV, 0) + ' bbl';
   }
 
   // Show what the Shipping tab currently totals, as a convenience hint
