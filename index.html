@@ -469,11 +469,15 @@ body.light-mode .mov-grp.auto{background:rgba(7,94,84,.04);}
 .rec-split{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px;}
 .rec-col{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px 8px 6px;}
 .rec-hd{display:flex;align-items:center;font-size:9px;letter-spacing:1.2px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--muted);padding:7px 2px 4px;}
-.rec-col .field{padding:5px 2px;}
-.rec-col .f-label{min-width:0;font-size:10px;}
-.rec-col .f-val{font-size:12.5px;}
-.rec-col .field.rec-tot{border-top:2px solid var(--accent);}
-.rec-col .field.rec-tot .f-val{color:var(--accent);font-weight:800;}
+/* Inside the half-width Land/Marine columns the label and figure cannot sit
+   side by side — the number wraps character by character. Stack them so the
+   figure always gets the full column width on one line. */
+.rec-col .field{display:block;padding:6px 4px;}
+.rec-col .f-label{display:block;min-width:0;font-size:9.5px;line-height:1.3;margin-bottom:2px;}
+.rec-col .f-val{display:block;font-size:13.5px;text-align:right;white-space:nowrap;}
+.rec-col .f-val .u{margin-left:4px;}
+.rec-col .field.rec-tot{border-top:2px solid var(--accent);margin-top:2px;padding-top:7px;}
+.rec-col .field.rec-tot .f-val{color:var(--accent);font-weight:800;font-size:15px;}
 /* ══ QUICK ENTRY ══ */
 .qe-btn{border-color:var(--green);color:var(--green);}
 .qe-btn:active{background:rgba(16,185,129,.12);}
@@ -517,8 +521,9 @@ body.light-mode .qe-row input:focus{box-shadow:0 0 0 3px rgba(7,94,84,.14);}
 .qv-sub::after{content:' m³';}
 .kt-sub{display:block;font-family:'JetBrains Mono',monospace;font-size:8.5px;color:var(--muted);font-weight:400;margin-top:1px;font-variant-numeric:tabular-nums;}
 .inv-out .m3{display:block;font-size:9px;color:var(--muted);}
-.f-bbl{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--muted);text-align:right;margin-top:1px;font-variant-numeric:tabular-nums;}
-.rec-col .f-bbl{font-size:9px;}
+.f-val{white-space:nowrap;}
+.f-bbl{display:block;white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--muted);text-align:right;margin-top:1px;font-variant-numeric:tabular-nums;}
+.rec-col .f-bbl{font-size:9px;text-align:right;white-space:nowrap;}
 
 .cmp-band{border-bottom:1px solid var(--border);padding-bottom:4px;}
 .cmp-band:last-child{border-bottom:none;}
@@ -891,7 +896,7 @@ table.key-tbl td.kt-diff b.kv-bad{color:var(--red);}
 
     <!-- Grand totals + reconciliation -->
     <div class="section">
-      <div class="sec-title"><svg class="ico"><use href="#i-sum"/></svg>Production Reconciliation</div>
+      <div class="sec-title"><svg class="ico"><use href="#i-sum"/></svg>Production Balance</div>
       <div class="rec-split">
         <div class="rec-col">
           <div class="rec-hd"><svg class="ico"><use href="#i-tank"/></svg>LAND</div>
@@ -3413,7 +3418,7 @@ function _acctReportHtml(){
          '</td><td>' + escHtml(_txt(st[1] + 'TodayTotal')) + '</td></tr>' +
          '<tr><th>' + st[0] + ' change</th><td colspan="2">' + escHtml(_txt(st[1] + 'Change')) + ' m³ · ' + escHtml(_txt(st[1] + 'ChangeBbl')) + ' bbl</td></tr></table>';
   });
-  h += '<table class="pr-table"><caption>Production Reconciliation</caption>' +
+  h += '<table class="pr-table"><caption>Production Balance</caption>' +
     '<tr><th>Today — all tanks</th><td colspan="2">' + escHtml(_txt('aGrandToday')) + '</td></tr>' +
     '<tr><th>Yesterday — all tanks</th><td colspan="2">' + escHtml(_txt('aGrandYest')) + '</td></tr>' +
     '<tr><th>Inventory change</th><td colspan="2">' + escHtml(_txt('aGrandChange')) + '</td></tr>' +
