@@ -428,6 +428,27 @@ body.light-mode .daily-field input:focus,body.light-mode .z-sample input:focus{b
 
 /* ══ SHEETS & ROWS ══ */
 .qty-sheet{border-radius:12px;}
+.xfer-mode{display:flex;align-items:center;gap:6px;padding:10px 14px 0;flex-wrap:wrap;}
+.xfer-mode-lbl{font-size:9px;letter-spacing:1.1px;text-transform:uppercase;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-right:2px;}
+.xfer-mode-btn{background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:10.5px;font-family:'JetBrains Mono',monospace;padding:5px 10px;cursor:pointer;transition:all .15s;}
+.xfer-mode-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(34,211,238,.08);}
+body.light-mode .xfer-mode-btn.active{background:rgba(7,94,84,.08);}
+.xfer-note{font-size:11px;line-height:1.65;color:var(--muted);padding:10px 14px 12px;border-bottom:1px solid var(--border);}
+.xfer-note b{color:var(--text);}
+.xfer-row{border-bottom:1px solid var(--border);padding:12px 14px;}
+.xfer-row:last-child{border-bottom:none;}
+.xfer-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+.xfer-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 10px;}
+.xfer-box.from{border-left:3px solid var(--accent2);}
+.xfer-box.to{border-left:3px solid var(--green);}
+.xfer-lbl{font-size:8.5px;font-weight:700;letter-spacing:1px;font-family:'JetBrains Mono',monospace;margin-bottom:6px;}
+.xfer-box.from .xfer-lbl{color:var(--accent2);}
+.xfer-box.to .xfer-lbl{color:var(--green);}
+.xfer-out{margin-top:7px;padding-top:6px;border-top:1px solid rgba(128,128,128,.15);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);text-align:center;}
+.xfer-out b{display:block;font-size:13px;color:var(--text);font-variant-numeric:tabular-nums;}
+.xfer-verdict{margin-top:8px;font-size:10.5px;font-family:'JetBrains Mono',monospace;line-height:1.5;padding:0 2px;}
+.xfer-verdict.ok{color:var(--green);}
+.xfer-verdict.warn{color:var(--yellow);}
 .cmp-split{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 12px 12px;}
 .cmp-split .qty-sheet{margin:0;}
 .cmp-hd{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.9px;text-transform:uppercase;
@@ -656,6 +677,36 @@ body.light-mode .daily-field input:focus,body.light-mode .z-sample input:focus{b
               <div class="qty-vals"><div><b id="aCmpVarV">0</b><i>m³</i></div><div><b id="aCmpVarB">0</b><i>bbl</i></div></div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tank-to-tank transfer reconciliation (API MPMS 12.1 volume balance) -->
+    <div class="section">
+      <div class="sec-title">
+        <svg class="ico"><use href="#i-valve"/></svg>Tank&nbsp;→&nbsp;Tank Transfer
+        <button class="ship-add-btn" onclick="addTransferRow()">+ Add Transfer</button>
+      </div>
+      <div class="xfer-mode">
+        <span class="xfer-mode-lbl">Basis</span>
+        <button class="xfer-mode-btn active" data-mode="obs" onclick="setXferMode('obs')">Observed</button>
+        <button class="xfer-mode-btn" data-mode="gsv" onclick="setXferMode('gsv')">GSV @15°C</button>
+        <button class="xfer-mode-btn" data-mode="mass" onclick="setXferMode('mass')">Mass</button>
+      </div>
+      <div class="xfer-note" id="xferModeNote"></div>
+      <div id="xferRows"></div>
+      <div class="qty-sheet" id="xferTotals" style="display:none;">
+        <div class="qty-block">
+          <div class="qty-lbl">Total Delivered</div>
+          <div class="qty-vals"><div><b id="xTotOutV">0</b><i id="xTotOutU">m³</i></div><div><b id="xTotOutT">0</b><i>MT</i></div></div>
+        </div>
+        <div class="qty-block">
+          <div class="qty-lbl">Total Received</div>
+          <div class="qty-vals"><div><b id="xTotInV">0</b><i id="xTotInU">m³</i></div><div><b id="xTotInT">0</b><i>MT</i></div></div>
+        </div>
+        <div class="qty-block net">
+          <div class="qty-lbl">Net Transfer Difference</div>
+          <div class="qty-vals"><div><b id="xTotDiffV">0</b><i id="xTotDiffU">m³</i></div><div><b id="xTotDiffP">0</b><i>%</i></div></div>
         </div>
       </div>
     </div>
@@ -2158,6 +2209,261 @@ function onYesterdayEdit(el){
   _invSaveTimer = setTimeout(saveInventoryToFirestore, 150);
 }
 
+// ══════════════════════════════════════════
+//  TANK → TANK TRANSFER RECONCILIATION
+//
+//  Method: Gross Standard Volume (GSV) balance, per API MPMS Ch.12.1.
+//
+//    GSV = Observed volume (from strapping table) × VCF(density, temp)
+//
+//    Delivered = GSV_before(source) − GSV_after(source)
+//    Received  = GSV_after(dest)   − GSV_before(dest)
+//    Difference = Received − Delivered      (negative ⇒ apparent loss)
+//    Loss %     = |Difference| / Delivered × 100
+//
+//  Why GSV and not the raw gauged volume: the source tank is normally
+//  hotter than the destination, so the same oil occupies a different volume
+//  at each end. Correcting both to 15 °C is what makes them comparable —
+//  comparing raw observed volumes would show a "loss" that is purely
+//  thermal contraction.
+//
+//  Mass cross-check: mass is conserved, volume is not. Mass = GSV × density
+//  in air. If the volume balance looks wrong but the mass balance is clean,
+//  the discrepancy is a temperature/density artefact rather than a real loss.
+//
+//  Floating-roof adjustment (FRA, optional): a floating roof displaces a
+//  volume equal to its own weight ÷ liquid density. Enter the roof weight
+//  in tonnes and it is deducted from that tank's gauged volume. Leave blank
+//  for fixed-roof tanks, or when the roof is grounded on its legs.
+//
+//  Line fill: this balance assumes the transfer line was full before AND
+//  after (the same condition your shipment reports certify). If it wasn't,
+//  the line contents show up here as an apparent loss or gain.
+// ══════════════════════════════════════════
+var _xferRowId = 0;
+var XFER_TOLERANCE_PCT = 0.25;   // typical acceptable tank-to-tank variance
+
+// Basis for comparing the two ends of a transfer:
+//   obs  — raw gauged volumes, no temperature correction at all (no 15 °C
+//          reference). Simplest, and what a dip-tape reading gives directly.
+//          Note a hot source into a cool destination will show a shortfall
+//          that is thermal contraction, not lost oil.
+//   gsv  — both ends corrected to 15 °C via ASTM 54A. Removes the thermal
+//          effect so only real discrepancy remains.
+//   mass — tonnes at each end (volume × density at that tank's own
+//          temperature). Mass is conserved regardless of temperature and
+//          needs no standard-temperature reference at all.
+var XFER_MODE = 'obs';
+var XFER_MODE_NOTE = {
+  obs:  'Raw gauged volumes, <b>no temperature correction</b>. A hot source into a cooler ' +
+        'destination will show a shortfall — that part is thermal contraction, not lost oil.',
+  gsv:  'Both ends corrected to <b>15&nbsp;°C</b> (ASTM 54A). Removes the thermal effect so any ' +
+        'remaining gap is a genuine discrepancy.',
+  mass: 'Compared in <b>tonnes</b> at each tank\u2019s own temperature. Mass is conserved whatever ' +
+        'the temperature, so no 15&nbsp;°C reference is needed. Any gap here is real.'
+};
+function setXferMode(m){
+  XFER_MODE = m;
+  document.querySelectorAll('.xfer-mode-btn').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-mode') === m);
+  });
+  var n = document.getElementById('xferModeNote');
+  if(n) n.innerHTML = XFER_MODE_NOTE[m] +
+    ' &nbsp;A transfer inside the terminal <b>nets to zero</b> in total stock, so it never changes ' +
+    'your production figure — this is a leak and measurement check.';
+  computeTransfers();
+}
+
+function addTransferRow(saved){
+  _xferRowId++;
+  var id = 'xfer' + _xferRowId;
+  var opts = TANKS.filter(function(t){ return !t.noCal; }).map(function(t){
+    return '<option value="' + escHtml(t.key) + '">' + escHtml(t.key) + '</option>';
+  }).join('');
+
+  var html =
+    '<div class="xfer-row" id="' + id + '">' +
+      '<div class="ship-row-hdr">' +
+        '<span class="ship-row-title"><svg class="ico"><use href="#i-flow"/></svg>Transfer</span>' +
+        '<button class="ship-row-del" onclick="removeTransferRow(\'' + id + '\')" title="Remove">✕</button>' +
+      '</div>' +
+      '<div class="ship-grid-2">' +
+        '<div class="ship-field"><label>Density @15°C <span class="req">*</span></label>' +
+          '<input type="text" inputmode="decimal" lang="en" data-role="dens" placeholder="0.9298" oninput="sanitizeNumInput(this); computeTransfers()"></div>' +
+        '<div class="ship-field"><label>Roof wt (t, optional)</label>' +
+          '<input type="text" inputmode="decimal" lang="en" data-role="roof" placeholder="fixed roof" oninput="sanitizeNumInput(this); computeTransfers()"></div>' +
+      '</div>' +
+      '<div class="xfer-pair">' +
+        '<div class="xfer-box from">' +
+          '<div class="xfer-lbl">▶ FROM (source)</div>' +
+          '<div class="ship-field"><label>Tank</label><select data-role="fromTank" onchange="computeTransfers()">' + opts + '</select></div>' +
+          '<div class="ship-grid-2" style="margin-top:6px;">' +
+            '<div class="ship-field"><label>Before m</label><input type="text" inputmode="decimal" lang="en" data-role="fromB" placeholder="0.000" oninput="sanitizeNumInput(this); computeTransfers()"></div>' +
+            '<div class="ship-field"><label>Temp °C</label><input type="text" inputmode="decimal" lang="en" data-role="fromBT" placeholder="0" oninput="sanitizeNumInput(this); computeTransfers()"></div>' +
+          '</div>' +
+          '<div class="ship-grid-2" style="margin-top:5px;">' +
+            '<div class="ship-field"><label>After m</label><input type="text" inputmode="decimal" lang="en" data-role="fromA" placeholder="0.000" oninput="sanitizeNumInput(this); computeTransfers()"></div>' +
+            '<div class="ship-field"><label>Temp °C</label><input type="text" inputmode="decimal" lang="en" data-role="fromAT" placeholder="0" oninput="sanitizeNumInput(this); computeTransfers()"></div>' +
+          '</div>' +
+          '<div class="xfer-out">Delivered <b data-role="outV">—</b> m³</div>' +
+        '</div>' +
+        '<div class="xfer-box to">' +
+          '<div class="xfer-lbl">◀ TO (destination)</div>' +
+          '<div class="ship-field"><label>Tank</label><select data-role="toTank" onchange="computeTransfers()">' + opts + '</select></div>' +
+          '<div class="ship-grid-2" style="margin-top:6px;">' +
+            '<div class="ship-field"><label>Before m</label><input type="text" inputmode="decimal" lang="en" data-role="toB" placeholder="0.000" oninput="sanitizeNumInput(this); computeTransfers()"></div>' +
+            '<div class="ship-field"><label>Temp °C</label><input type="text" inputmode="decimal" lang="en" data-role="toBT" placeholder="0" oninput="sanitizeNumInput(this); computeTransfers()"></div>' +
+          '</div>' +
+          '<div class="ship-grid-2" style="margin-top:5px;">' +
+            '<div class="ship-field"><label>After m</label><input type="text" inputmode="decimal" lang="en" data-role="toA" placeholder="0.000" oninput="sanitizeNumInput(this); computeTransfers()"></div>' +
+            '<div class="ship-field"><label>Temp °C</label><input type="text" inputmode="decimal" lang="en" data-role="toAT" placeholder="0" oninput="sanitizeNumInput(this); computeTransfers()"></div>' +
+          '</div>' +
+          '<div class="xfer-out">Received <b data-role="inV">—</b> m³</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ship-results">' +
+        '<div class="ship-field"><label>Difference</label><div class="val" data-role="diffV">—</div></div>' +
+        '<div class="ship-field"><label>Variance %</label><div class="val" data-role="diffP">—</div></div>' +
+        '<div class="ship-field"><label>Mass MT</label><div class="val" data-role="massD">—</div></div>' +
+      '</div>' +
+      '<div class="xfer-verdict" data-role="verdict"></div>' +
+    '</div>';
+
+  document.getElementById('xferRows').insertAdjacentHTML('beforeend', html);
+
+  if(saved){
+    var row = document.getElementById(id);
+    ['dens','roof','fromTank','fromB','fromBT','fromA','fromAT','toTank','toB','toBT','toA','toAT'].forEach(function(k){
+      var el = row.querySelector('[data-role=' + k + ']');
+      if(el && saved[k]) el.value = saved[k];
+    });
+  }
+  computeTransfers();
+}
+
+function removeTransferRow(id){
+  var el = document.getElementById(id);
+  if(el) el.remove();
+  computeTransfers();
+}
+
+// Quantity at one gauging, on whichever basis is selected.
+//   obs  → raw strapping volume (no VCF at all)
+//   gsv  → volume × VCF, i.e. corrected to 15 °C
+//   mass → volume × density at that tank's own temperature
+//          (density_at_T = density15 × VCF, so no 15 °C figure is reported —
+//           the reference cancels and the result is in tonnes)
+function _xferGSV(tankKey, levelM, tempC, densGcm3, roofTonnes){
+  if(isNaN(levelM) || isNaN(densGcm3) || !TANK_CAL) return null;
+  if(XFER_MODE !== 'obs' && isNaN(tempC)) return null;
+  var tankNum = parseInt(String(tankKey).replace(/[^0-9]/g, ''), 10);
+  var vol = calLookup(tankNum, Math.round(levelM * 1000));
+  if(vol === null) return null;
+  // Floating-roof displacement: volume = roof mass ÷ liquid density
+  if(!isNaN(roofTonnes) && roofTonnes > 0) vol -= (roofTonnes / densGcm3);
+  if(XFER_MODE === 'obs') return vol;
+  var vcf = astm54aVCF(densGcm3 * 1000, tempC);
+  if(XFER_MODE === 'gsv') return vol * vcf;
+  // mass: density at observed temperature = density@15 × VCF
+  var densAtT = (densGcm3 - 0.0011) * vcf;     // in-air density at that temp
+  return vol * densAtT;
+}
+
+function computeTransfers(){
+  var rows = document.querySelectorAll('#xferRows .xfer-row');
+  var totOut = 0, totIn = 0, totOutMT = 0, totInMT = 0, any = false;
+
+  rows.forEach(function(row){
+    var q = function(r){ return row.querySelector('[data-role=' + r + ']'); };
+    var dens = parseFloat(toWesternDigits(q('dens').value));
+    var roof = parseFloat(toWesternDigits(q('roof').value));
+
+    var outGsv = null, inGsv = null;
+    var fb = _xferGSV(q('fromTank').value, parseFloat(toWesternDigits(q('fromB').value)), parseFloat(toWesternDigits(q('fromBT').value)), dens, roof);
+    var fa = _xferGSV(q('fromTank').value, parseFloat(toWesternDigits(q('fromA').value)), parseFloat(toWesternDigits(q('fromAT').value)), dens, roof);
+    var tb = _xferGSV(q('toTank').value,  parseFloat(toWesternDigits(q('toB').value)),  parseFloat(toWesternDigits(q('toBT').value)),  dens, roof);
+    var ta = _xferGSV(q('toTank').value,  parseFloat(toWesternDigits(q('toA').value)),  parseFloat(toWesternDigits(q('toAT').value)),  dens, roof);
+
+    if(fb !== null && fa !== null) outGsv = fb - fa;
+    if(tb !== null && ta !== null) inGsv = ta - tb;
+
+    q('outV').textContent = outGsv !== null ? fmtNum(outGsv, 3) : '—';
+    q('inV').textContent  = inGsv  !== null ? fmtNum(inGsv, 3)  : '—';
+
+    var vEl = q('verdict');
+    if(outGsv !== null && inGsv !== null && outGsv !== 0){
+      var diff = inGsv - outGsv;
+      var pct = Math.abs(diff / outGsv * 100);
+      // Mass is conserved even when volume isn't — same density both ends
+      // here, so the mass gap is the volume gap scaled by density in air.
+      var air = dens - 0.0011;
+      var massDiff = (XFER_MODE === 'mass') ? diff : diff * air;
+
+      q('diffV').textContent = fmtNum(diff, 3);
+      q('diffP').textContent = pct.toFixed(3) + ' %';
+      q('massD').textContent = fmtNum(massDiff, 3);
+
+      var within = pct <= XFER_TOLERANCE_PCT;
+      vEl.className = 'xfer-verdict ' + (within ? 'ok' : 'warn');
+      vEl.textContent = within
+        ? '✓ Within ' + XFER_TOLERANCE_PCT + '% tolerance — balance acceptable'
+        : '⚠ ' + pct.toFixed(3) + '% variance exceeds ' + XFER_TOLERANCE_PCT + '% — check line fill, gauging, or roof position';
+
+      totOut += outGsv; totIn += inGsv;
+      totOutMT += outGsv * air; totInMT += inGsv * air;
+      any = true;
+    } else {
+      q('diffV').textContent = '—'; q('diffP').textContent = '—'; q('massD').textContent = '—';
+      vEl.className = 'xfer-verdict'; vEl.textContent = '';
+    }
+  });
+
+  // Unit captions follow the selected basis
+  var unit = (XFER_MODE === 'mass') ? 'MT' : 'm³';
+  document.querySelectorAll('#xferRows .xfer-out').forEach(function(el){
+    el.innerHTML = el.innerHTML.replace(/<\/b>\s*(m³|MT)/, '</b> ' + unit);
+  });
+  var uo = document.getElementById('xTotOutU'), ui = document.getElementById('xTotInU'), ud = document.getElementById('xTotDiffU');
+  if(uo) uo.textContent = unit;
+  if(ui) ui.textContent = unit;
+  if(ud) ud.textContent = unit;
+
+  var box = document.getElementById('xferTotals');
+  if(box){
+    box.style.display = any ? '' : 'none';
+    if(any){
+      var d = totIn - totOut;
+      document.getElementById('xTotOutV').textContent = fmtNum(totOut, 3);
+      document.getElementById('xTotOutT').textContent = fmtNum(totOutMT, 3);
+      document.getElementById('xTotInV').textContent  = fmtNum(totIn, 3);
+      document.getElementById('xTotInT').textContent  = fmtNum(totInMT, 3);
+      document.getElementById('xTotDiffV').textContent = fmtNum(d, 3);
+      document.getElementById('xTotDiffP').textContent = totOut ? (Math.abs(d / totOut * 100)).toFixed(3) : '0';
+    }
+  }
+  scheduleInvSave();
+}
+
+function _readTransfers(){
+  var out = [];
+  document.querySelectorAll('#xferRows .xfer-row').forEach(function(row){
+    var o = {};
+    ['dens','roof','fromTank','fromB','fromBT','fromA','fromAT','toTank','toB','toBT','toA','toAT'].forEach(function(k){
+      var el = row.querySelector('[data-role=' + k + ']');
+      o[k] = el ? (el.value || null) : null;
+    });
+    out.push(o);
+  });
+  return out;
+}
+function _applyTransfers(list){
+  var box = document.getElementById('xferRows');
+  if(!box) return;
+  box.innerHTML = '';
+  (list || []).forEach(function(t){ addTransferRow(t); });
+  computeTransfers();
+}
+
 function computeInventory(){
   var CONV = 6.292316;
   var totals = { land: {y:0, t:0}, marine: {y:0, t:0} };
@@ -2435,6 +2741,8 @@ function saveInventoryToFirestore(){
   db.collection('accountingInventory').doc(currentDate).set({
     tanks: _invReadAll(),
     movements: _invReadMovements(),
+    transfers: _readTransfers(),
+    xferMode: XFER_MODE,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     updatedBy: currentUser ? currentUser.email : null
   }).catch(function(err){ console.error('[Firestore] inventory save failed', err); });
@@ -2470,6 +2778,8 @@ function _invApply(d){
     var el = document.getElementById(id);
     if(el) el.value = mv[id] || '';
   });
+  if(d && d.xferMode) setXferMode(d.xferMode);
+  if(!tabHasFocus('tabContentAcct')) _applyTransfers(d && d.transfers);
   computeInventory();
   // Seed the yesterday column from the previous day only if this day's own
   // record has no yesterday readings yet. A saved (or manually typed)
@@ -2491,7 +2801,8 @@ function startInvListener(dateStr){
   _invUnsub = db.collection('accountingInventory').doc(dateStr).onSnapshot(function(doc){
     var d = doc.exists ? doc.data() : {};
     if(JSON.stringify(d.tanks || {}) === JSON.stringify(_invReadAll())
-       && JSON.stringify(d.movements || {}) === JSON.stringify(_invReadMovements())) return;
+       && JSON.stringify(d.movements || {}) === JSON.stringify(_invReadMovements())
+       && JSON.stringify(d.transfers || []) === JSON.stringify(_readTransfers())) return;
     if(_invHasFocus()){ _invPendingDoc = d; return; }
     _invApply(d);
   }, function(err){ console.error('[Firestore] inventory listener error', err); });
@@ -3254,6 +3565,7 @@ document.addEventListener('DOMContentLoaded', function() {
   buildDrainTable();
   buildZeitcoSamples();
   buildInventoryRows();
+  setXferMode('obs');
   render();
   const passInput = document.getElementById('loginPassword');
   const emailInput = document.getElementById('loginEmail');
